@@ -1,0 +1,381 @@
+version: "1.0.0"
+sensor_profile_name: "municipal_inspection_fleet_standard"
+
+lidar:
+  baseline_chassis_cm: 30.0
+  wavelength_nm: 905
+  sampling_rate_hz: 100
+
+  # Tiered depth distribution parameters
+  # Used for controlled sampling across severity tiers
+  depth_tiers:
+    shallow:
+      min_depth_cm: 1.0
+      max_depth_cm: 4.5
+      distribution: "truncated_normal"
+      mean_cm: 2.5
+      std_cm: 0.8
+    moderate:
+      min_depth_cm: 4.5
+      max_depth_cm: 9.0
+      distribution: "truncated_normal"
+      mean_cm: 6.8
+      std_cm: 1.2
+    deep:
+      min_depth_cm: 9.0
+      max_depth_cm: 18.5
+      distribution: "truncated_normal"
+      mean_cm: 13.5
+      std_cm: 2.2
+
+  # Class-specific tier transition probabilities based on defect surface area
+  # For D40 (Pothole): larger area shifts probability from shallow towards deep
+  class_profiles:
+    D40:
+      name: "Pothole"
+      area_thresholds_sqm:
+        small: 0.25      # < 0.25 m^2
+        medium: 0.65     # 0.25 - 0.65 m^2
+        large: 0.65      # > 0.65 m^2
+      tier_probabilities:
+        small:
+          shallow: 0.55
+          moderate: 0.35
+          deep: 0.10
+        medium:
+          shallow: 0.15
+          moderate: 0.60
+          deep: 0.25
+        large:
+          shallow: 0.05
+          moderate: 0.30
+          deep: 0.65
+
+    D20:
+      name: "Alligator Crack"
+      area_thresholds_sqm:
+        small: 0.30
+        medium: 0.70
+        large: 0.70
+      tier_probabilities:
+        small:
+          shallow: 0.75
+          moderate: 0.23
+          deep: 0.02
+        medium:
+          shallow: 0.50
+          moderate: 0.45
+          deep: 0.05
+        large:
+          shallow: 0.30
+          moderate: 0.60
+          deep: 0.10
+
+    D00:
+      name: "Longitudinal Crack"
+      tier_probabilities:
+        default:
+          shallow: 0.95
+          moderate: 0.05
+          deep: 0.00
+      depth_override:
+        min_depth_cm: 0.4
+        max_depth_cm: 2.2
+        mean_cm: 1.2
+        std_cm: 0.4
+
+    D10:
+      name: "Transverse Crack"
+      tier_probabilities:
+        default:
+          shallow: 0.92
+          moderate: 0.08
+          deep: 0.00
+      depth_override:
+        min_depth_cm: 0.5
+        max_depth_cm: 2.5
+        mean_cm: 1.3
+        std_cm: 0.45
+
+  # Optical noise and environmental attenuation
+  noise:
+    dry_day:
+      noise_std_cm: 0.10
+      confidence_min: 0.90
+      confidence_max: 0.99
+    rain_wet:
+      noise_std_cm: 0.42
+      confidence_min: 0.45
+      confidence_max: 0.78
+      specular_dropout_prob: 0.08
+
+sonar:
+  baseline_chassis_cm: 30.0
+  transducer_frequency_khz: 40
+  beam_divergence_deg: 15
+  sampling_rate_hz: 50
+
+  # Environmental noise and acoustic reflection properties
+  noise:
+    dry_day:
+      noise_std_cm: 0.45
+      beam_averaging_factor: 0.88   # beam divergence smooths narrow crack boundaries
+      confidence_min: 0.78
+      confidence_max: 0.88
+    rain_wet:
+      noise_std_cm: 0.35
+      submerged_penetration_factor: 1.00  # ultrasonic pulses penetrate standing water cleanly
+      confidence_min: 0.88
+      confidence_max: 0.96
+    low_light:
+      noise_std_cm: 0.40
+      confidence_min: 0.82
+      confidence_max: 0.90
+
+  # Environmental sensor-switching thresholds
+  switching_thresholds:
+    luminance_threshold_lux: 40.0
+    rain_detected_triggers_sonar: true
+
+accelerometer:
+  sampling_rate_hz: 200
+  static_gravity_baseline_g: 1.0
+
+  # Dynamic impact thresholds (preserving project 1.5g threshold)
+  thresholds:
+    confirmed_impact_g: 1.50
+    borderline_impact_min_g: 1.35
+    borderline_impact_max_g: 1.50
+
+  # Normalization references
+  reference_speed_kmh: 40.0
+  reference_depth_cm: 10.0
+
+  # Quarter-car mechanical parameters (sprung & unsprung mass)
+  quarter_car_model:
+    sprung_mass_kg: 320.0
+    unsprung_mass_kg: 45.0
+    suspension_stiffness_n_m: 28000.0
+    damping_coefficient_n_s_m: 1800.0
+    tire_stiffness_n_m: 190000.0
+
+  # Class-specific acceleration response parameters
+  class_profiles:
+    D40:
+      name: "Pothole"
+      alpha: 0.90
+      speed_exp: 0.85
+      depth_exp: 1.25
+      noise_std: 0.06
+      rms_base_g: 0.18
+    D20:
+      name: "Alligator Crack"
+      alpha: 0.35
+      speed_exp: 0.70
+      depth_exp: 0.80
+      noise_std: 0.05
+      rms_base_g: 0.22
+    D00:
+      name: "Longitudinal Crack"
+      alpha: 0.15
+      speed_exp: 0.60
+      depth_exp: 0.70
+      noise_std: 0.03
+      rms_base_g: 0.10
+    D10:
+      name: "Transverse Crack"
+      alpha: 0.18
+      speed_exp: 0.60
+      depth_exp: 0.70
+      noise_std: 0.03
+      rms_base_g: 0.10
+
+  # Categorical impact classification
+  impact_regimes:
+    no_impact:
+      label: "No Significant Impact"
+      max_g: 1.35
+      description: "Vehicle suspension absorbs distress smoothly; negligible structural shock."
+    borderline:
+      label: "Borderline Impact"
+      min_g: 1.35
+      max_g: 1.50
+      description: "Noticeable vertical suspension jolt approaching safety limits; requires cross-modal visual validation."
+    confirmed_impact:
+      label: "Confirmed Dynamic Impact"
+      min_g: 1.50
+      description: "Severe wheel rim / axle acceleration spike exceeding 1.5g safety limit; physical road hazard confirmed."
+
+traffic:
+  traffic_source: "synthetic"
+  generation_method: "controlled_distribution"
+
+  # Road-context profiles mapping spatial roadway hierarchy to IRC PCU capacity
+  road_classes:
+    LOCAL:
+      name: "Local Municipal Street"
+      description: "Residential and neighborhood access roads with minimal commercial vehicle flow"
+      capacity_pcu: 8000
+      pcu_range:
+        min_pcu: 1500
+        max_pcu: 6000
+      free_flow_speed_kmh: 30.0
+      congestion_speed_kmh: 15.0
+      commercial_vehicle_percentage_range: [2.0, 8.0]
+
+    COLLECTOR:
+      name: "Urban Collector Street"
+      description: "Sub-arterial feeder streets channeling neighborhood traffic into arterials"
+      capacity_pcu: 15000
+      pcu_range:
+        min_pcu: 6000
+        max_pcu: 14000
+      free_flow_speed_kmh: 40.0
+      congestion_speed_kmh: 20.0
+      commercial_vehicle_percentage_range: [6.0, 14.0]
+
+    ARTERIAL:
+      name: "Primary Urban Arterial"
+      description: "Major multi-lane city thoroughfares linking major commercial hubs"
+      capacity_pcu: 26000
+      pcu_range:
+        min_pcu: 14000
+        max_pcu: 24000
+      free_flow_speed_kmh: 52.0
+      congestion_speed_kmh: 25.0
+      commercial_vehicle_percentage_range: [10.0, 18.0]
+
+    HIGH_TRAFFIC_CORRIDOR:
+      name: "High Traffic Express Corridor"
+      description: "Regional expressways, elevated corridors, and national highway transit links"
+      capacity_pcu: 38000
+      pcu_range:
+        min_pcu: 24000
+        max_pcu: 38000
+      free_flow_speed_kmh: 68.0
+      congestion_speed_kmh: 32.0
+      commercial_vehicle_percentage_range: [14.0, 24.0]
+
+infrastructure:
+  location_source: "synthetic"
+  hospital_source: "synthetic"
+  generation_method: "gis_geodesic_nearest_neighbor"
+  provider_type: "synthetic_gis_layer" # Can be replaced with "openstreetmap_overpass" in production
+
+  # Documented Indian demonstration area
+  demonstration_area:
+    name: "Mumbai Metropolitan Region (Western Express & Coastal Corridor)"
+    country: "India"
+    state: "Maharashtra"
+    city: "Mumbai"
+    bounding_box:
+      min_lat: 19.0400
+      max_lat: 19.2500
+      min_lon: 72.8200
+      max_lon: 72.8900
+
+  # Spatial parameters
+  emergency_corridor_threshold_km: 1.0
+  network_tortuosity_factor: 1.18 # Converts straight-line geodesic distance to street routing estimate
+
+  # Pluggable GIS Hospital Registry (geocoded Mumbai trauma centers)
+  hospitals:
+    - name: "Lilavati Hospital & Research Centre"
+      lat: 19.0510
+      lon: 72.8290
+      tier: "Level-1 Super Speciality & Emergency Trauma Center"
+      district: "Bandra West"
+    - name: "Nanavati Max Super Speciality Hospital"
+      lat: 19.0880
+      lon: 72.8420
+      tier: "Level-1 Critical Care & Trauma Unit"
+      district: "Santacruz West"
+    - name: "Dr. R.N. Cooper Municipal General Hospital"
+      lat: 19.1080
+      lon: 72.8360
+      tier: "Level-1 Municipal Trauma General Hospital"
+      district: "Juhu / Vile Parle"
+    - name: "Bal Thackeray Trauma Care Municipal Hospital"
+      lat: 19.1380
+      lon: 72.8590
+      tier: "Apex Municipal Emergency Trauma Center"
+      district: "Jogeshwari East"
+    - name: "Kokilaben Dhirubhai Ambani Hospital"
+      lat: 19.1310
+      lon: 72.8250
+      tier: "Level-1 Tertiary Care & Multi-organ Trauma Center"
+      district: "Andheri West"
+    - name: "SevenHills Hospital"
+      lat: 19.1220
+      lon: 72.8830
+      tier: "Level-1 Emergency & Critical Care Hospital"
+      district: "Andheri East"
+    - name: "Bhabha Municipal General Hospital"
+      lat: 19.0550
+      lon: 72.8300
+      tier: "Level-2 Municipal Secondary Trauma Center"
+      district: "Bandra West"
+    - name: "Holy Family Multi-Speciality Hospital"
+      lat: 19.0580
+      lon: 72.8270
+      tier: "Level-2 Acute Medical Emergency Hospital"
+      district: "Bandra West"
+
+location:
+  default_mode: "synthetic_location"
+  supported_modes:
+    - "source_location"
+    - "synthetic_location"
+    - "external_gis_location"
+  default_seed: 2026
+
+  demonstration_corridor:
+    name: "Mumbai Metropolitan Urban Corridor"
+    state: "Maharashtra"
+    country: "India"
+    bounds:
+      min_lat: 19.0400
+      max_lat: 19.2200
+      min_lon: 72.8200
+      max_lon: 72.8800
+    route_waypoints:
+      - segment_id: "WEH-MUM-SEC-01"
+        road_name: "Western Express Highway, Bandra-Kalanagar Junction"
+        road_class: "HIGH_TRAFFIC_CORRIDOR"
+        lat: 19.0596
+        lon: 72.8488
+        chainage_km: 0.0
+      - segment_id: "SVR-MUM-SEC-02"
+        road_name: "Swami Vivekananda (SV) Road, Santacruz West"
+        road_class: "ARTERIAL"
+        lat: 19.0780
+        lon: 72.8410
+        chainage_km: 2.8
+      - segment_id: "LNK-MUM-SEC-03"
+        road_name: "Linking Road Commercial Sub-Arterial, Bandra West"
+        road_class: "COLLECTOR"
+        lat: 19.0620
+        lon: 72.8330
+        chainage_km: 4.5
+      - segment_id: "RES-MUM-SEC-04"
+        road_name: "Pali Hill Residential Access Corridor, Bandra West"
+        road_class: "LOCAL"
+        lat: 19.0650
+        lon: 72.8250
+        chainage_km: 5.7
+      - segment_id: "WEH-MUM-SEC-05"
+        road_name: "Western Express Highway, Jogeshwari Link Flyover"
+        road_class: "HIGH_TRAFFIC_CORRIDOR"
+        lat: 19.1360
+        lon: 72.8600
+        chainage_km: 12.3
+      - segment_id: "SVR-MUM-SEC-06"
+        road_name: "Swami Vivekananda (SV) Road, Andheri West"
+        road_class: "ARTERIAL"
+        lat: 19.1200
+        lon: 72.8460
+        chainage_km: 15.1
+
+
+
+

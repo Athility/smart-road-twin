@@ -1,0 +1,15 @@
+{
+  "model_architecture": "yolov8n",
+  "classes": [
+    "D00",
+    "D10",
+    "D20",
+    "D40"
+  ],
+  "trained_epochs": 5,
+  "best_epoch": 5,
+  "best_mAP50": 0.4904,
+  "timestamp": 1790251028.7081394,
+  "synthetic_training": false,
+  "data_source": "RDD2022_India"
+}

@@ -1,0 +1,73 @@
+{
+  "dataset_size": 6,
+  "experiments": {
+    "A": {
+      "name": "EXPERIMENT A: Vision Only",
+      "description": "Monocular 2D bounding boxes only. Lacks depth and acceleration sensors.",
+      "total_defects_evaluated": 6,
+      "detection_confirmation_rate": 0.0,
+      "unconfirmed_superficial_rate": 1.0,
+      "impact_confirmation_rate": 0.0,
+      "sensor_disagreement_rate": 1.0,
+      "topsis_priority_stability": 0.3714,
+      "mean_topsis_score": 0.3766,
+      "critical_priority_count": 1
+    },
+    "B": {
+      "name": "EXPERIMENT B: Vision + Accelerometer",
+      "description": "Camera coupled with quarter-car vertical acceleration. Verifies dynamic wheel shock.",
+      "total_defects_evaluated": 6,
+      "detection_confirmation_rate": 0.1667,
+      "unconfirmed_superficial_rate": 0.5,
+      "impact_confirmation_rate": 0.1667,
+      "sensor_disagreement_rate": 0.8333,
+      "topsis_priority_stability": 0.6571,
+      "mean_topsis_score": 0.4021,
+      "critical_priority_count": 1
+    },
+    "C": {
+      "name": "EXPERIMENT C: Vision + LiDAR",
+      "description": "Camera coupled with optical LiDAR depth. Vulnerable to rain / standing water scatter.",
+      "total_defects_evaluated": 6,
+      "detection_confirmation_rate": 0.5,
+      "unconfirmed_superficial_rate": 0.5,
+      "impact_confirmation_rate": 0.0,
+      "sensor_disagreement_rate": 1.0,
+      "topsis_priority_stability": 0.2571,
+      "mean_topsis_score": 0.3622,
+      "critical_priority_count": 2
+    },
+    "D": {
+      "name": "EXPERIMENT D: Vision + LiDAR + Sonar + Accelerometer",
+      "description": "Complete physical sensor suite with environmental switching. Lacks urban GIS context.",
+      "total_defects_evaluated": 6,
+      "detection_confirmation_rate": 0.6667,
+      "unconfirmed_superficial_rate": 0.3333,
+      "impact_confirmation_rate": 0.1667,
+      "sensor_disagreement_rate": 1.0,
+      "topsis_priority_stability": 0.9429,
+      "mean_topsis_score": 0.3555,
+      "critical_priority_count": 1
+    },
+    "E": {
+      "name": "EXPERIMENT E: Full Multimodal System",
+      "description": "Physical sensor suite + environmental switching + municipal GIS & TOPSIS prioritization.",
+      "total_defects_evaluated": 6,
+      "detection_confirmation_rate": 0.6667,
+      "unconfirmed_superficial_rate": 0.3333,
+      "impact_confirmation_rate": 0.1667,
+      "sensor_disagreement_rate": 1.0,
+      "topsis_priority_stability": 1.0,
+      "mean_topsis_score": 0.422,
+      "critical_priority_count": 0
+    }
+  },
+  "benchmark_date": "2026-09-24",
+  "topsis_weights": [
+    0.35,
+    0.25,
+    0.25,
+    0.15
+  ],
+  "impact_threshold_g": 1.5
+}
