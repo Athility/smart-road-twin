@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { RefreshCw, Radio, TriangleAlert } from 'lucide-react';
+import { RefreshCw, Radio, Map, Database } from 'lucide-react';
 
 interface HeaderProps {
   isLive: boolean;
@@ -11,6 +11,8 @@ interface HeaderProps {
   autoRefresh: boolean;
   onToggleAutoRefresh: () => void;
   totalDefects: number;
+  activeView?: 'twin' | 'explorer';
+  onViewChange?: (view: 'twin' | 'explorer') => void;
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -28,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   onRefresh,
   autoRefresh,
   onToggleAutoRefresh,
+  activeView = 'twin',
+  onViewChange,
 }) => {
   const [mounted, setMounted] = React.useState(false);
   const [tick, setTick] = React.useState(0);
@@ -106,6 +110,44 @@ export const Header: React.FC<HeaderProps> = ({
             </p>
           </div>
         </div>
+
+        {/* ── View Switcher Tabs ──────────────────────────────── */}
+        {onViewChange && (
+          <div
+            className="flex items-center p-0.5 rounded-lg"
+            style={{
+              background: '#111520',
+              border: '1px solid #1E2435',
+            }}
+          >
+            <button
+              onClick={() => onViewChange('twin')}
+              className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all"
+              style={{
+                background: activeView === 'twin' ? '#1D4ED8' : 'transparent',
+                color: activeView === 'twin' ? '#EFF6FF' : '#8892A4',
+                border: activeView === 'twin' ? '1px solid #3B82F6' : '1px solid transparent',
+                cursor: 'pointer',
+              }}
+            >
+              <Map style={{ width: 12, height: 12 }} />
+              <span>Spatial Twin Map</span>
+            </button>
+            <button
+              onClick={() => onViewChange('explorer')}
+              className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all"
+              style={{
+                background: activeView === 'explorer' ? '#1D4ED8' : 'transparent',
+                color: activeView === 'explorer' ? '#EFF6FF' : '#8892A4',
+                border: activeView === 'explorer' ? '1px solid #3B82F6' : '1px solid transparent',
+                cursor: 'pointer',
+              }}
+            >
+              <Database style={{ width: 12, height: 12 }} />
+              <span>Dataset Explorer</span>
+            </button>
+          </div>
+        )}
 
         {/* ── Controls ─────────────────────────────────────── */}
         <div className="flex items-center gap-2 flex-shrink-0">

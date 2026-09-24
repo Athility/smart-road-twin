@@ -1,5 +1,7 @@
 export type PriorityLevel = 'Critical' | 'High' | 'Medium' | 'Low';
 
+export type DataSourceType = 'RDD2022' | 'SYNTHETIC SENSOR' | 'SYNTHETIC GIS' | 'MULTIMODAL';
+
 export interface ProcessedTelemetry {
   detection_modality: 'optical_lidar' | 'sonar_submerged_acoustic' | string;
   is_submerged: boolean;
@@ -26,6 +28,16 @@ export interface TelemetryRecord {
   processed_telemetry: ProcessedTelemetry;
   topsis_score: number;
   priority_level: PriorityLevel;
+  // Multimodal provenance & CV inspection attributes
+  data_source?: DataSourceType;
+  damage_class?: string;
+  damage_label?: string;
+  confidence?: number;
+  image_id?: string;
+  image_url?: string;
+  bbox?: number[];
+  road_name?: string;
+  road_class?: string;
 }
 
 export interface PriorityCounts {
@@ -53,3 +65,22 @@ export interface TelemetryResponse {
   summary: TelemetrySummary;
   data: TelemetryRecord[];
 }
+
+export interface DatasetExplorerStats {
+  total_records: number;
+  d00_count: number;
+  d10_count: number;
+  d20_count: number;
+  d40_count: number;
+  avg_lidar_depth: number;
+  avg_sonar_depth: number;
+  avg_acceleration: number;
+  avg_traffic_pcu: number;
+  avg_hospital_distance: number;
+  rain_percentage: number;
+  lidar_selected_percentage: number;
+  sonar_selected_percentage: number;
+  priority_distribution: PriorityCounts;
+  records?: TelemetryRecord[];
+}
+
