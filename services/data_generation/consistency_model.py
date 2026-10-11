@@ -460,14 +460,29 @@ class PhysicalConsistencyModel:
         Strict physical invariant:
         - rain_detected OR luminance_lux < 40.0 → acoustic sonar selected / preferred
         - dry daylight → optical LiDAR selected / preferred
+        - When rain_detected=True:
+            * Sonar gets water-surface systematic bias (-0.65 cm), larger surface-ripple noise,
+              and JSN-SR04T min-range dead zone (20.0 cm).
+            * LiDAR gets wet-surface specular degradation (-1.85 cm) that is NOT applied to sonar.
         """
-        # Sensor noise models
-        lidar_noise = round(self.rng.uniform(-0.15, 0.15), 2)
-        sonar_noise = round(self.rng.uniform(-0.30, 0.30), 2)
+        if rain_detected:
+            lidar_noise = round(self.rng.uniform(-0.42, 0.42), 2)
+            wet_lidar_degradation_cm = -1.85
+            sonar_ripple_noise = round(self.rng.uniform(-0.85, 0.85), 2)
+            sonar_bias_cm = -0.65
+            sonar_noise = round(sonar_bias_cm + sonar_ripple_noise, 2)
+        else:
+            lidar_noise = round(self.rng.uniform(-0.15, 0.15), 2)
+            wet_lidar_degradation_cm = 0.0
+            sonar_bias_cm = 0.0
+            sonar_noise = round(self.rng.uniform(-0.30, 0.30), 2)
 
         # Raw distance from chassis down to road defect base
-        raw_lidar_cm = round(self.baseline_chassis_cm + defect_depth_cm + lidar_noise, 2)
-        raw_sonar_cm = round(self.baseline_chassis_cm + defect_depth_cm + sonar_noise, 2)
+        lidar_effective_cm = round(max(0.1, defect_depth_cm + wet_lidar_degradation_cm + lidar_noise), 2)
+        raw_lidar_cm = round(self.baseline_chassis_cm + lidar_effective_cm, 2)
+
+        sonar_effective_cm = round(max(0.1, defect_depth_cm + sonar_noise), 2)
+        raw_sonar_cm = round(max(20.0, self.baseline_chassis_cm + sonar_effective_cm), 2)
 
         # Environmental modality selection
         use_sonar = bool(rain_detected or (luminance_lux < 40.0))
@@ -483,11 +498,13 @@ class PhysicalConsistencyModel:
         return {
             "raw_lidar_cm": raw_lidar_cm,
             "lidar_depth_cm": raw_lidar_cm,
-            "lidar_effective_depth_cm": defect_depth_cm,
+            "lidar_effective_depth_cm": lidar_effective_cm,
+            "wet_lidar_degradation_cm": wet_lidar_degradation_cm,
             "raw_sonar_cm": raw_sonar_cm,
             "sonar_depth_cm": raw_sonar_cm,
-            "sonar_effective_depth_cm": round(max(0.1, defect_depth_cm + sonar_noise), 2),
+            "sonar_effective_depth_cm": sonar_effective_cm,
             "sonar_error_cm": sonar_noise,
+            "sonar_systematic_bias_cm": sonar_bias_cm,
             "preferred_modality": preferred_modality,
             "modality_reason": modality_reason,
             "selected_depth_cm": selected_depth_cm,

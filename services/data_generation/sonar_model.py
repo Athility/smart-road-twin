@@ -41,21 +41,32 @@ DEFAULT_SONAR_CONFIG = {
         "baseline_chassis_cm": 30.0,
         "transducer_frequency_khz": 40,
         "beam_divergence_deg": 15,
+        "water_surface_model": {
+            "transducer_model": "JSN-SR04T",
+            "min_range_dead_zone_cm": 20.0,
+            "systematic_bias_cm": -0.65,
+            "speed_of_sound_humidity_factor": 1.006,
+            "surface_ripple_std_cm": 0.85,
+        },
         "noise": {
             "dry_day": {
-                "noise_std_cm": 0.45,
+                "noise_std_cm": 0.35,
+                "systematic_bias_cm": 0.0,
                 "beam_averaging_factor": 0.88,
                 "confidence_min": 0.78,
                 "confidence_max": 0.88
             },
             "rain_wet": {
-                "noise_std_cm": 0.35,
+                "noise_std_cm": 0.85,
+                "systematic_bias_cm": -0.65,
+                "min_range_dead_zone_cm": 20.0,
                 "submerged_penetration_factor": 1.00,
-                "confidence_min": 0.88,
-                "confidence_max": 0.96
+                "confidence_min": 0.82,
+                "confidence_max": 0.93
             },
             "low_light": {
-                "noise_std_cm": 0.40,
+                "noise_std_cm": 0.38,
+                "systematic_bias_cm": 0.0,
                 "confidence_min": 0.82,
                 "confidence_max": 0.90
             }
@@ -70,7 +81,8 @@ DEFAULT_SONAR_CONFIG = {
 
 class SonarModel:
     """
-    Configurable Sonar Acoustic model with realistic sensor error
+    Configurable Sonar Acoustic model with JSN-SR04T water-surface physics
+    (rain systematic bias, surface ripple noise, minimum-range dead zone)
     and environmental switching integration.
     """
     def __init__(
@@ -149,50 +161,77 @@ class SonarModel:
         Simulate acoustic sonar measurement:
         sonar_depth = true_depth + sensor_error
 
-        Args:
-            damage_class: RDD2022 class ('D00', 'D10', 'D20', 'D40')
-            true_defect_depth_cm: Ground truth physical defect depth
-            rain_detected: Precipitation flag
-            mean_luminance: Ambient lighting lux
+        When rain_detected=True, applies the JSN-SR04T water-surface model:
+        - systematic_bias_cm (speed-of-sound shift + water-surface ripple reflection offset)
+        - larger surface_ripple_std_cm Gaussian noise
+        - min_range_dead_zone_cm transducer blanking clamp
+        Note: Wet-surface optical LiDAR specular dropout degradation is NEVER applied to sonar.
         """
         sonar_cfg = self.config.get("sonar", DEFAULT_SONAR_CONFIG["sonar"])
         noise_cfg = sonar_cfg.get("noise", DEFAULT_SONAR_CONFIG["sonar"]["noise"])
+        wsm_cfg = sonar_cfg.get(
+            "water_surface_model",
+            DEFAULT_SONAR_CONFIG["sonar"]["water_surface_model"]
+        )
         thresholds = sonar_cfg.get("switching_thresholds", DEFAULT_SONAR_CONFIG["sonar"]["switching_thresholds"])
         lux_thresh = thresholds.get("luminance_threshold_lux", 40.0)
 
         switching = self.evaluate_switching_recommendation(rain_detected, mean_luminance)
+        min_dead_zone_cm = float(wsm_cfg.get("min_range_dead_zone_cm", 20.0))
 
         # Select environmental noise profile
         if rain_detected:
-            env_prof = noise_cfg.get("rain_wet", {"noise_std_cm": 0.35, "confidence_min": 0.88, "confidence_max": 0.96})
+            env_prof = noise_cfg.get(
+                "rain_wet",
+                {"noise_std_cm": 0.85, "systematic_bias_cm": -0.65, "confidence_min": 0.82, "confidence_max": 0.93}
+            )
             is_submerged_echo = True
-            # In rain/standing water, acoustic waves penetrate water layer to solid void floor
-            penetration_factor = env_prof.get("submerged_penetration_factor", 1.00)
+            penetration_factor = float(env_prof.get("submerged_penetration_factor", 1.00))
             apparent_base = true_defect_depth_cm * penetration_factor
+            systematic_bias_cm = float(
+                env_prof.get("systematic_bias_cm", wsm_cfg.get("systematic_bias_cm", -0.65))
+            )
+            noise_std = float(
+                env_prof.get("noise_std_cm", wsm_cfg.get("surface_ripple_std_cm", 0.85))
+            )
+            min_dead_zone_cm = float(env_prof.get("min_range_dead_zone_cm", min_dead_zone_cm))
         elif mean_luminance < lux_thresh:
-            env_prof = noise_cfg.get("low_light", {"noise_std_cm": 0.40, "confidence_min": 0.82, "confidence_max": 0.90})
+            env_prof = noise_cfg.get(
+                "low_light",
+                {"noise_std_cm": 0.38, "systematic_bias_cm": 0.0, "confidence_min": 0.82, "confidence_max": 0.90}
+            )
             is_submerged_echo = False
             apparent_base = true_defect_depth_cm
+            systematic_bias_cm = 0.0
+            noise_std = float(env_prof.get("noise_std_cm", 0.38))
         else:
-            env_prof = noise_cfg.get("dry_day", {"noise_std_cm": 0.45, "beam_averaging_factor": 0.88, "confidence_min": 0.78, "confidence_max": 0.88})
+            env_prof = noise_cfg.get(
+                "dry_day",
+                {"noise_std_cm": 0.35, "systematic_bias_cm": 0.0, "beam_averaging_factor": 0.88, "confidence_min": 0.78, "confidence_max": 0.88}
+            )
             is_submerged_echo = False
+            systematic_bias_cm = 0.0
+            noise_std = float(env_prof.get("noise_std_cm", 0.35))
             # Wide acoustic beam cone causes slight boundary averaging on narrow cracks
             if damage_class in ("D00", "D10"):
-                averaging = env_prof.get("beam_averaging_factor", 0.88)
+                averaging = float(env_prof.get("beam_averaging_factor", 0.88))
                 apparent_base = true_defect_depth_cm * averaging
             else:
                 apparent_base = true_defect_depth_cm
 
-        # Configurable Gaussian sensor error: sensor_error = noise + beam_offset
-        noise_std = env_prof.get("noise_std_cm", 0.40)
-        sensor_error = round(self.rng.gauss(0.0, noise_std), 2)
+        stochastic_noise = self.rng.gauss(0.0, noise_std)
+        sensor_error = round(systematic_bias_cm + stochastic_noise, 2)
 
-        # sonar_depth = true_depth + sensor_error
+        # sonar_depth = true_depth + sensor_error, enforcing JSN-SR04T min-range dead zone
         effective_depth_cm = round(max(0.1, apparent_base + sensor_error), 2)
-        raw_depth_cm = round(self.baseline_chassis_cm + effective_depth_cm, 2)
+        unclamped_raw_cm = round(self.baseline_chassis_cm + effective_depth_cm, 2)
+        dead_zone_clamped = bool(unclamped_raw_cm < min_dead_zone_cm)
+        raw_depth_cm = round(max(min_dead_zone_cm, unclamped_raw_cm), 2)
+        if dead_zone_clamped:
+            effective_depth_cm = round(max(0.0, raw_depth_cm - self.baseline_chassis_cm), 2)
 
-        conf_min = env_prof.get("confidence_min", 0.80)
-        conf_max = env_prof.get("confidence_max", 0.95)
+        conf_min = float(env_prof.get("confidence_min", 0.80))
+        conf_max = float(env_prof.get("confidence_max", 0.95))
         confidence = round(self.rng.uniform(conf_min, conf_max), 3)
 
         return {
@@ -200,6 +239,11 @@ class SonarModel:
             "effective_depth_cm": effective_depth_cm,
             "baseline_chassis_cm": self.baseline_chassis_cm,
             "sensor_error_cm": sensor_error,
+            "systematic_bias_cm": round(systematic_bias_cm, 2),
+            "noise_std_cm": round(noise_std, 2),
+            "min_range_dead_zone_cm": min_dead_zone_cm,
+            "dead_zone_clamped": dead_zone_clamped,
+            "wet_lidar_degradation_applied": False,
             "true_depth_reference_cm": round(true_defect_depth_cm, 2),
             "sensor_source": "synthetic",
             "generation_method": "controlled_distribution",

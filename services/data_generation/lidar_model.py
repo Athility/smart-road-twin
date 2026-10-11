@@ -90,8 +90,19 @@ DEFAULT_CONFIG = {
             }
         },
         "noise": {
-            "dry_day": {"noise_std_cm": 0.10, "confidence_min": 0.90, "confidence_max": 0.99},
-            "rain_wet": {"noise_std_cm": 0.42, "confidence_min": 0.45, "confidence_max": 0.78, "specular_dropout_prob": 0.08}
+            "dry_day": {
+                "noise_std_cm": 0.10,
+                "confidence_min": 0.90,
+                "confidence_max": 0.99,
+                "wet_surface_degradation_cm": 0.0
+            },
+            "rain_wet": {
+                "noise_std_cm": 0.42,
+                "confidence_min": 0.45,
+                "confidence_max": 0.78,
+                "specular_dropout_prob": 0.08,
+                "wet_surface_degradation_cm": -1.85
+            }
         }
     }
 }
@@ -184,12 +195,8 @@ class LiDARModel:
     ) -> Dict[str, Any]:
         """
         Simulate downward-facing LiDAR distance measurement using controlled distributions.
-
-        Args:
-            damage_class: RDD2022 class ('D00', 'D10', 'D20', 'D40')
-            surface_area_sqm: Estimated surface area of the defect in m^2
-            rain_detected: Whether rain/standing water is present
-            mean_luminance: Ambient light lux
+        When rain_detected=True, applies optical wet-surface specular degradation (specular dropouts
+        and water-film surface reflection bias) that is NOT applied to acoustic sonar.
         """
         lidar_cfg = self.config.get("lidar", DEFAULT_CONFIG["lidar"])
         depth_tiers = lidar_cfg.get("depth_tiers", DEFAULT_CONFIG["lidar"]["depth_tiers"])
@@ -218,26 +225,47 @@ class LiDARModel:
             dist_type = tier_params.get("distribution", "truncated_normal")
             sampled_depth = self._sample_truncated_normal(mean_d, std_d, min_d, max_d)
 
-        # 3. Apply noise & environmental attenuation
+        # 3. Apply noise & wet-surface specular degradation (exclusive to optical LiDAR)
         noise_cfg = lidar_cfg.get("noise", DEFAULT_CONFIG["lidar"]["noise"])
         if rain_detected:
-            env_cfg = noise_cfg.get("rain_wet", {"noise_std_cm": 0.42, "confidence_min": 0.45, "confidence_max": 0.78})
-            noise = self.rng.gauss(0.0, env_cfg.get("noise_std_cm", 0.42))
-            conf = self.rng.uniform(env_cfg.get("confidence_min", 0.45), env_cfg.get("confidence_max", 0.78))
+            env_cfg = noise_cfg.get(
+                "rain_wet",
+                {
+                    "noise_std_cm": 0.42,
+                    "confidence_min": 0.45,
+                    "confidence_max": 0.78,
+                    "specular_dropout_prob": 0.08,
+                    "wet_surface_degradation_cm": -1.85,
+                }
+            )
+            noise = self.rng.gauss(0.0, float(env_cfg.get("noise_std_cm", 0.42)))
+            conf = self.rng.uniform(float(env_cfg.get("confidence_min", 0.45)), float(env_cfg.get("confidence_max", 0.78)))
             specular_scatter = True
+            dropout_prob = float(env_cfg.get("specular_dropout_prob", 0.08))
+            base_deg_cm = float(env_cfg.get("wet_surface_degradation_cm", -1.85))
+            specular_dropout_occurred = bool(self.rng.random() < dropout_prob)
+            if specular_dropout_occurred:
+                wet_degradation_cm = round(base_deg_cm * 1.5, 2)
+            else:
+                wet_degradation_cm = round(base_deg_cm, 2)
         else:
             env_cfg = noise_cfg.get("dry_day", {"noise_std_cm": 0.10, "confidence_min": 0.90, "confidence_max": 0.99})
-            noise = self.rng.gauss(0.0, env_cfg.get("noise_std_cm", 0.10))
-            conf = self.rng.uniform(env_cfg.get("confidence_min", 0.90), env_cfg.get("confidence_max", 0.99))
+            noise = self.rng.gauss(0.0, float(env_cfg.get("noise_std_cm", 0.10)))
+            conf = self.rng.uniform(float(env_cfg.get("confidence_min", 0.90)), float(env_cfg.get("confidence_max", 0.99)))
             specular_scatter = False
+            specular_dropout_occurred = False
+            wet_degradation_cm = 0.0
 
-        raw_depth_cm = round(max(0.0, self.baseline_chassis_cm + sampled_depth + noise), 2)
+        measured_cavity_cm = max(0.1, sampled_depth + wet_degradation_cm + noise)
+        raw_depth_cm = round(max(0.0, self.baseline_chassis_cm + measured_cavity_cm), 2)
         effective_depth_cm = round(max(0.0, raw_depth_cm - self.baseline_chassis_cm), 2)
 
         return {
             "depth_cm": raw_depth_cm,
             "effective_depth_cm": effective_depth_cm,
             "baseline_chassis_cm": self.baseline_chassis_cm,
+            "wet_surface_degradation_cm": wet_degradation_cm,
+            "specular_dropout_occurred": specular_dropout_occurred,
             "severity_tier": tier_name,
             "sensor_source": "synthetic",
             "generation_method": "controlled_distribution",

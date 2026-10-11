@@ -103,11 +103,13 @@ lidar:
       noise_std_cm: 0.10
       confidence_min: 0.90
       confidence_max: 0.99
+      wet_surface_degradation_cm: 0.0
     rain_wet:
       noise_std_cm: 0.42
       confidence_min: 0.45
       confidence_max: 0.78
       specular_dropout_prob: 0.08
+      wet_surface_degradation_cm: -1.85   # Specular water-surface reflection/dropout bias (applied ONLY to LiDAR)
 
 sonar:
   baseline_chassis_cm: 30.0
@@ -115,20 +117,32 @@ sonar:
   beam_divergence_deg: 15
   sampling_rate_hz: 50
 
+  # JSN-SR04T-style waterproof ultrasonic transducer water-surface physics model
+  water_surface_model:
+    transducer_model: "JSN-SR04T"
+    min_range_dead_zone_cm: 20.0          # Minimum acoustic blanking dead-zone range (cm)
+    systematic_bias_cm: -0.65             # Speed-of-sound shift & water-film boundary bias under rain (cm)
+    speed_of_sound_humidity_factor: 1.006 # Acoustic velocity shift in saturated humid/rain air
+    surface_ripple_std_cm: 0.85           # Increased stochastic echo scatter from raindrop surface ripples (cm)
+
   # Environmental noise and acoustic reflection properties
   noise:
     dry_day:
-      noise_std_cm: 0.45
+      noise_std_cm: 0.35
+      systematic_bias_cm: 0.0
       beam_averaging_factor: 0.88   # beam divergence smooths narrow crack boundaries
       confidence_min: 0.78
       confidence_max: 0.88
     rain_wet:
-      noise_std_cm: 0.35
-      submerged_penetration_factor: 1.00  # ultrasonic pulses penetrate standing water cleanly
-      confidence_min: 0.88
-      confidence_max: 0.96
+      noise_std_cm: 0.85            # Larger noise under rain from surface ripple scattering
+      systematic_bias_cm: -0.65     # Systematic bias applied ONLY when rain_detected=True
+      min_range_dead_zone_cm: 20.0
+      submerged_penetration_factor: 1.00
+      confidence_min: 0.82
+      confidence_max: 0.93
     low_light:
-      noise_std_cm: 0.40
+      noise_std_cm: 0.38
+      systematic_bias_cm: 0.0
       confidence_min: 0.82
       confidence_max: 0.90
 
