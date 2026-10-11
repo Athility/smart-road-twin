@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { TelemetryRecord } from '@/types/telemetry';
+import { getInspectionImageUrl } from '@/lib/api';
 import {
   X,
   MapPin,
@@ -196,9 +197,7 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
   const dataSource = record.data_source || 'MULTIMODAL';
 
   // Format image URL
-  const imgUrl = record.image_url
-    ? (record.image_url.startsWith('http') ? record.image_url : `http://localhost:8000${record.image_url}`)
-    : `http://localhost:8000/api/v1/images/${record.image_id || 'India_000045'}.jpg`;
+  const imgUrl = getInspectionImageUrl(record.image_url, record.image_id);
 
   const damageClassCode = record.damage_class || 'D40';
   const damageClassName = record.damage_label || (

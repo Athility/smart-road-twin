@@ -2,6 +2,19 @@ import { TelemetryResponse, PriorityLevel, TelemetryRecord, DatasetExplorerStats
 
 export const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1/telemetry';
 
+export function getBackendOrigin(): string {
+  const raw = process.env.NEXT_PUBLIC_API_URL || BACKEND_URL;
+  return raw.replace(/\/api\/v1\/.*$/, '').replace(/\/+$/, '');
+}
+
+export function getInspectionImageUrl(imageUrl?: string, imageId?: string): string {
+  const origin = getBackendOrigin();
+  if (imageUrl) {
+    return imageUrl.startsWith('http') ? imageUrl : `${origin}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+  }
+  return `${origin}/api/v1/images/${imageId || 'India_000045'}.jpg`;
+}
+
 export const FALLBACK_EXPLORER_STATS: DatasetExplorerStats = {
   total_records: 6,
   d00_count: 1,
