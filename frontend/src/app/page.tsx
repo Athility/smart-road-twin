@@ -95,6 +95,11 @@ export default function DashboardPage() {
       >
         {activeView === 'explorer' ? (
           <DatasetExplorerPanel
+            records={telemetry.data}
+            detector={telemetry.detector}
+            isLive={isLive}
+            isRefreshing={isRefreshing}
+            onRefresh={() => loadData(true)}
             onSelectRecord={(id) => {
               setSelectedPotholeId(id);
               setActiveView('twin');

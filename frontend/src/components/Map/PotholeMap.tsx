@@ -27,7 +27,7 @@ const PRIORITY_CONFIG = {
   Low:      { color: '#22C55E', dot: '#4ADE80', size: 22 },
 };
 
-// Controller: smooth pan on selection, initial bounds fit only once
+// Controller: smooth pan on selection, fit bounds whenever the incident set changes
 function MapController({
   selectedRecord,
   potholes,
@@ -36,18 +36,19 @@ function MapController({
   potholes: TelemetryRecord[];
 }) {
   const map = useMap();
-  const initialFitDone = React.useRef(false);
+  const lastFittedSignature = React.useRef<string>('');
 
   useEffect(() => {
+    const signature = potholes.map((p) => p.id).join(',');
     if (selectedRecord) {
       map.flyTo([selectedRecord.latitude, selectedRecord.longitude], 16, {
         animate: true,
         duration: 1.0,
       });
-    } else if (potholes.length > 0 && !initialFitDone.current) {
+    } else if (potholes.length > 0 && lastFittedSignature.current !== signature) {
       const bounds = L.latLngBounds(potholes.map((p) => [p.latitude, p.longitude]));
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 });
-      initialFitDone.current = true;
+      lastFittedSignature.current = signature;
     }
   }, [selectedRecord, map, potholes]);
 

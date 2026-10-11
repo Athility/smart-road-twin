@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { DatasetExplorerStats, TelemetryRecord } from '@/types/telemetry';
-import { fetchDatasetExplorerStats, FALLBACK_EXPLORER_STATS } from '@/lib/api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { DatasetExplorerStats, TelemetryRecord, DetectorType } from '@/types/telemetry';
+import { fetchDatasetExplorerStats, FALLBACK_EXPLORER_STATS, computeExplorerStatsFromRecords } from '@/lib/api';
 import {
   Database,
   Layers,
@@ -18,6 +18,11 @@ import {
 } from 'lucide-react';
 
 interface DatasetExplorerPanelProps {
+  records?: TelemetryRecord[];
+  detector?: DetectorType;
+  isLive?: boolean;
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
   onSelectRecord?: (recordId: string) => void;
   onSwitchToMap?: () => void;
 }
@@ -30,20 +35,29 @@ const CLASS_INFO: Record<string, { name: string; color: string; desc: string }> 
 };
 
 export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
+  records: sharedRecords,
+  detector,
+  isLive: propIsLive,
+  isRefreshing,
+  onRefresh,
   onSelectRecord,
   onSwitchToMap,
 }) => {
-  const [stats, setStats] = useState<DatasetExplorerStats>(FALLBACK_EXPLORER_STATS);
+  const [fetchedStats, setFetchedStats] = useState<DatasetExplorerStats>(FALLBACK_EXPLORER_STATS);
   const [loading, setLoading] = useState(false);
-  const [isLive, setIsLive] = useState(false);
+  const [fetchedIsLive, setFetchedIsLive] = useState(false);
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
 
   const loadStats = async () => {
+    if (onRefresh) {
+      onRefresh();
+      return;
+    }
     setLoading(true);
     try {
       const { stats: resStats, isLive: live } = await fetchDatasetExplorerStats();
-      setStats(resStats);
-      setIsLive(live);
+      setFetchedStats(resStats);
+      setFetchedIsLive(live);
     } catch (err) {
       console.error('Failed to load explorer stats:', err);
     } finally {
@@ -52,8 +66,21 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
   };
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    if (!sharedRecords) {
+      loadStats();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedRecords]);
+
+  const stats = useMemo(
+    () =>
+      sharedRecords
+        ? computeExplorerStatsFromRecords(sharedRecords, detector || 'ground-truth lookup')
+        : fetchedStats,
+    [sharedRecords, detector, fetchedStats]
+  );
+  const isLive = propIsLive !== undefined ? propIsLive : fetchedIsLive;
+  const isBusy = isRefreshing !== undefined ? isRefreshing : loading;
 
   const total = stats.total_records || 1;
   const pDist = stats.priority_distribution || { Critical: 0, High: 0, Medium: 0, Low: 0 };
@@ -123,7 +150,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={loadStats}
-            disabled={loading}
+            disabled={isBusy}
             style={{
               background: '#1A2030',
               border: '1px solid #252D40',
@@ -138,7 +165,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
               gap: 6,
             }}
           >
-            <RefreshCw style={{ width: 12, height: 12, animation: loading ? 'spin 1s linear infinite' : undefined }} />
+            <RefreshCw style={{ width: 12, height: 12, animation: isBusy ? 'spin 1s linear infinite' : undefined }} />
             Refresh
           </button>
           {onSwitchToMap && (

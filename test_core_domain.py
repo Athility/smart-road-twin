@@ -1564,6 +1564,17 @@ class TestPhase19Phase20DashboardAndExplorer(unittest.TestCase):
             self.assertTrue(0.0 <= record["topsis_score"] <= 1.0)
             self.assertIn(record["priority_level"], ["Critical", "High", "Medium", "Low"])
 
+    def test_telemetry_and_explorer_share_identical_source(self):
+        import main
+        telemetry_res = self.loop.run_until_complete(main.get_telemetry())
+        explorer_res = self.loop.run_until_complete(main.get_dataset_explorer())
+        self.assertEqual(telemetry_res["total"], explorer_res["total_records"])
+        self.assertGreaterEqual(telemetry_res["total"], 6)
+        self.assertEqual(
+            [r["id"] for r in telemetry_res["data"]],
+            [r["id"] for r in explorer_res["records"]]
+        )
+
 
 class TestPhase23VerificationComprehensive(unittest.TestCase):
     """
