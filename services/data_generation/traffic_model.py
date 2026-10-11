@@ -2,18 +2,18 @@
 Urban Traffic Density & PCU Model
 =================================
 
-Simulates realistic roadway traffic volume in Passenger Car Units (PCU)
+Simulates realistic daily roadway traffic volume in Passenger Car Units per day (PCU/day)
 and macroscopic speed-density flow characteristics based on Indian Roads Congress
 (IRC) urban arterial guidelines.
 
 Physical Dynamics:
-- Road classification profiles:
-    * LOCAL: Lower traffic volume (residential / neighborhood streets, 1,500 - 6,000 PCU)
-    * COLLECTOR: Medium traffic volume (commercial feeder streets, 6,000 - 14,000 PCU)
-    * ARTERIAL: High traffic volume (primary city thoroughfares, 14,000 - 24,000 PCU)
-    * HIGH_TRAFFIC_CORRIDOR: Very high traffic volume (expressways & national corridors, 24,000 - 38,000 PCU)
+- Road classification profiles (daily volume in PCU/day):
+    * LOCAL: Lower traffic volume (residential / neighborhood streets, 1,500 - 6,000 PCU/day)
+    * COLLECTOR: Medium traffic volume (commercial feeder streets, 6,000 - 14,000 PCU/day)
+    * ARTERIAL: High traffic volume (primary city thoroughfares, 14,000 - 24,000 PCU/day)
+    * HIGH_TRAFFIC_CORRIDOR: Very high traffic volume (expressways & national corridors, 24,000 - 38,000 PCU/day)
 - Traffic is intrinsically correlated with roadway location and segment hierarchy.
-- Output includes road_class, traffic_pcu, and traffic_source = "synthetic",
+- Output includes road_class, traffic_pcu (PCU/day), and traffic_source = "synthetic",
   enabling seamless future replacement with real ITS sensor feeds without altering
   the TOPSIS prioritization interface.
 """
@@ -36,6 +36,7 @@ DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "sensor_profiles.yaml"
 DEFAULT_TRAFFIC_CONFIG = {
     "traffic": {
         "traffic_source": "synthetic",
+        "traffic_unit": "PCU/day",
         "generation_method": "controlled_distribution",
         "road_classes": {
             "LOCAL": {
@@ -257,6 +258,7 @@ class TrafficModel:
             "road_class_name": profile.get("name", resolved_class),
             "traffic_pcu": traffic_pcu,
             "pcu": traffic_pcu,
+            "traffic_unit": "PCU/day",
             "traffic_source": "synthetic",
             "roadway_capacity_pcu": capacity,
             "volume_capacity_ratio": v_over_c,

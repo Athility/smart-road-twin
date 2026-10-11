@@ -221,7 +221,7 @@ LiDAR  Sonar   Impact     TOPSIS Priority
 | Criterion | Weight | Direction | Rationale |
 |---|---|---|---|
 | `calculated_volume_liters` | **0.35** | Benefit (↑) | Larger void = greater vehicle damage risk |
-| `traffic_pcu` | **0.25** | Benefit (↑) | Higher traffic = more vehicles at risk |
+| `traffic_pcu` | **0.25** | Benefit (↑) | Higher daily traffic (PCU/day) = more vehicles at risk |
 | `dist_hospital_km` | **0.25** | **Cost (↓)** | Smaller distance = higher emergency access urgency |
 | `vehicle_speed_kmh` | **0.15** | Benefit (↑) | Higher speed = greater impact severity |
 

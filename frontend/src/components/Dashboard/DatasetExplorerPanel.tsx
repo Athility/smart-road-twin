@@ -383,7 +383,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
             <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#EEF2FF' }}>
               {stats.avg_traffic_pcu.toLocaleString()}
             </div>
-            <span style={{ fontSize: '9px', color: '#64748B' }}>Passenger Car Units / hour</span>
+            <span style={{ fontSize: '9px', color: '#64748B' }}>Passenger Car Units / day (PCU/day)</span>
           </div>
 
           {/* Average Hospital Distance */}
