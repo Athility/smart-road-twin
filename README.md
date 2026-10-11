@@ -2,10 +2,10 @@
 
 > Multimodal Road Infrastructure Monitoring, AI Sensor-Switching & TOPSIS Repair Prioritisation Platform
 
-[![Next.js 14](https://img.shields.io/badge/Next.js-14.2.15-black?style=flat-svg&logo=next.js)](https://nextjs.org/)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15.5.27-black?style=flat-svg&logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-svg&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-svg&logo=python)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/Tests-83%2F83%20Passing-brightgreen?style=flat-svg)](./test_core_domain.py)
+[![Tests](https://img.shields.io/badge/Tests-86%2F86%20Passing-brightgreen?style=flat-svg)](./test_core_domain.py)
 [![Seed](https://img.shields.io/badge/Seed-2026-blue?style=flat-svg)](./data/processed/srmd/metadata.json)
 
 ---
@@ -565,6 +565,20 @@ The root `vercel.json` routes `/api/v1/*` to FastAPI (`main.py`) and all other p
 - ✅ Hospital locations are **explicitly labelled** `synthetic` pending real OSM integration
 - ✅ Large generated datasets (`data/processed/`, `data/raw/`) are **git-ignored** and never committed
 - ✅ All stochastic generation is **seeded** (`SEED = 2026`) and fully deterministic
+
+---
+
+## 🔐 Known Security Notes
+
+Upgrading `next` and `eslint-config-next` to **`15.5.27`** resolved the **Critical** `next` runtime advisories (RCE, SSRF, middleware bypass, and cache-poisoning advisories in `14.x`) as well as the **High** `glob` (`10.2.0 - 10.4.5`, `GHSA-5j98-mcp5-4vw2`) CLI command-injection advisory in `@next/eslint-plugin-next`.
+
+The remaining `npm audit` findings in `frontend/` are build-time / CSS-toolchain transitive dependencies that require major breaking upgrades (`next@16.4.0` / React 19 or `tailwindcss@4.3.3`) and are not exposed to untrusted user input at runtime:
+
+| Package (Transitive Path) | Severity | Advisory | Fix Status |
+|---|---|---|---|
+| `postcss` (`<=8.5.22` bundled inside `node_modules/next/node_modules/postcss`) | **High** | `GHSA-qx2v-qp2m-jg93`, `GHSA-6g55-p6wh-862q`, `GHSA-fxqj-rqcc-2cmp`, `GHSA-r28c-9q8g-f849` (CSS stringify / sourceMap path traversal) | Requires `next@>=16.3.0` (`npm audit fix --force`, breaking React 19 upgrade incompatible with `react-leaflet@4.2.1`) |
+| `braces` (`*` via `chokidar` / `micromatch` / `fast-glob` in `tailwindcss@3.4.x` & `@next/eslint-plugin-next`) | **High** | `GHSA-vfj7-8cjw-p6xm` (stack-exhaustion DoS on deeply nested glob patterns) | Requires `tailwindcss@4.x` (`npm audit fix --force`, breaking CSS config migration) |
+| `postcss-selector-parser` (`<7.1.6` via `postcss-nested` in `tailwindcss@3.4.x`) | **Moderate** | `GHSA-rj75-hqrm-r3gf` (quadratic complexity in flat selector parsing) | Requires `tailwindcss@4.x` (`npm audit fix --force`, breaking CSS config migration) |
 
 ---
 
