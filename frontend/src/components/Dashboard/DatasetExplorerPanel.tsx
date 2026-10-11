@@ -140,6 +140,40 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
               >
                 {isLive ? 'LIVE DATASET' : 'SRMD SYNTHETIC BASELINE'}
               </span>
+              <span
+                title="Evaluated with ground-truth lookup detector; metrics are NOT model performance"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '2px 7px',
+                  borderRadius: 3,
+                  background: 'rgba(59,130,246,0.14)',
+                  border: '1px solid rgba(59,130,246,0.35)',
+                  color: '#93C5FD',
+                  fontFamily: 'monospace',
+                }}
+              >
+                Detector: {stats.detector || 'Ground-truth lookup'}
+              </span>
+              <span
+                title="Loss curve and sensor telemetry are simulated, not real training or hardware telemetry"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '2px 7px',
+                  borderRadius: 3,
+                  background: 'rgba(168,85,247,0.14)',
+                  border: '1px solid rgba(168,85,247,0.35)',
+                  color: '#C084FC',
+                  fontFamily: 'monospace',
+                }}
+              >
+                Simulated
+              </span>
             </div>
             <p style={{ fontSize: '11px', color: '#64748B', margin: 0, marginTop: 2 }}>
               Smart Road Multimodal Dataset (SRMD) — RDD2022 Visual Ground Truth with Controlled Physical & GIS Layers
@@ -216,7 +250,20 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
             <span style={{ fontSize: '11px', fontWeight: 600, color: '#8892A4', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Total Records
             </span>
-            <Database style={{ width: 14, height: 14, color: '#60A5FA' }} />
+            <span
+              style={{
+                fontSize: '9px',
+                fontWeight: 700,
+                padding: '1px 5px',
+                borderRadius: 3,
+                background: 'rgba(59,130,246,0.14)',
+                border: '1px solid rgba(59,130,246,0.35)',
+                color: '#93C5FD',
+                fontFamily: 'monospace',
+              }}
+            >
+              Ground-truth lookup
+            </span>
           </div>
           <div className="flex items-baseline gap-2">
             <span style={{ fontSize: '26px', fontWeight: 800, color: '#EEF2FF', fontFamily: 'monospace' }}>
@@ -243,7 +290,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
             <span style={{ fontSize: '10px', fontWeight: 700, color: CLASS_INFO.D00.color, letterSpacing: '0.06em' }}>
               [D00] Longitudinal
             </span>
-            <span style={{ fontSize: '10px', color: '#64748B' }}>Crack</span>
+            <span style={{ fontSize: '9px', color: '#93C5FD', fontFamily: 'monospace' }}>Ground-truth lookup</span>
           </div>
           <div className="flex items-baseline gap-2">
             <span style={{ fontSize: '24px', fontWeight: 800, color: '#EEF2FF', fontFamily: 'monospace' }}>
@@ -271,7 +318,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
             <span style={{ fontSize: '10px', fontWeight: 700, color: CLASS_INFO.D10.color, letterSpacing: '0.06em' }}>
               [D10] Transverse
             </span>
-            <span style={{ fontSize: '10px', color: '#64748B' }}>Crack</span>
+            <span style={{ fontSize: '9px', color: '#93C5FD', fontFamily: 'monospace' }}>Ground-truth lookup</span>
           </div>
           <div className="flex items-baseline gap-2">
             <span style={{ fontSize: '24px', fontWeight: 800, color: '#EEF2FF', fontFamily: 'monospace' }}>
@@ -299,7 +346,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
             <span style={{ fontSize: '10px', fontWeight: 700, color: CLASS_INFO.D20.color, letterSpacing: '0.06em' }}>
               [D20] Alligator
             </span>
-            <span style={{ fontSize: '10px', color: '#64748B' }}>Crack</span>
+            <span style={{ fontSize: '9px', color: '#93C5FD', fontFamily: 'monospace' }}>Ground-truth lookup</span>
           </div>
           <div className="flex items-baseline gap-2">
             <span style={{ fontSize: '24px', fontWeight: 800, color: '#EEF2FF', fontFamily: 'monospace' }}>
@@ -327,7 +374,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
             <span style={{ fontSize: '10px', fontWeight: 700, color: CLASS_INFO.D40.color, letterSpacing: '0.06em' }}>
               [D40] Pothole
             </span>
-            <span style={{ fontSize: '10px', color: '#EF4444', fontWeight: 700 }}>High Urgency</span>
+            <span style={{ fontSize: '9px', color: '#93C5FD', fontFamily: 'monospace' }}>Ground-truth lookup</span>
           </div>
           <div className="flex items-baseline gap-2">
             <span style={{ fontSize: '24px', fontWeight: 800, color: '#EEF2FF', fontFamily: 'monospace' }}>
@@ -352,9 +399,23 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
           padding: '16px',
         }}
       >
-        <div style={{ marginBottom: 12 }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
           <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8892A4' }}>
             Multi-Sensor & Context Averages
+          </span>
+          <span
+            style={{
+              fontSize: '9px',
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: 3,
+              background: 'rgba(168,85,247,0.14)',
+              border: '1px solid rgba(168,85,247,0.35)',
+              color: '#C084FC',
+              fontFamily: 'monospace',
+            }}
+          >
+            Simulated
           </span>
         </div>
 
@@ -367,9 +428,12 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
         >
           {/* Average LiDAR depth */}
           <div style={{ background: '#161B27', border: '1px solid #1E2435', borderRadius: 6, padding: '12px' }}>
-            <div className="flex items-center gap-1.5" style={{ color: '#60A5FA', marginBottom: 4 }}>
-              <Ruler style={{ width: 13, height: 13 }} />
-              <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg LiDAR Depth</span>
+            <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+              <div className="flex items-center gap-1.5" style={{ color: '#60A5FA' }}>
+                <Ruler style={{ width: 13, height: 13 }} />
+                <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg LiDAR Depth</span>
+              </div>
+              <span style={{ fontSize: '9px', color: '#C084FC', fontFamily: 'monospace' }}>Simulated</span>
             </div>
             <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#EEF2FF' }}>
               {stats.avg_lidar_depth.toFixed(2)} cm
@@ -379,9 +443,12 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
 
           {/* Average Sonar depth */}
           <div style={{ background: '#161B27', border: '1px solid #1E2435', borderRadius: 6, padding: '12px' }}>
-            <div className="flex items-center gap-1.5" style={{ color: '#38BDF8', marginBottom: 4 }}>
-              <Waves style={{ width: 13, height: 13 }} />
-              <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg Sonar Depth</span>
+            <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+              <div className="flex items-center gap-1.5" style={{ color: '#38BDF8' }}>
+                <Waves style={{ width: 13, height: 13 }} />
+                <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg Sonar Depth</span>
+              </div>
+              <span style={{ fontSize: '9px', color: '#C084FC', fontFamily: 'monospace' }}>Simulated</span>
             </div>
             <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#EEF2FF' }}>
               {stats.avg_sonar_depth.toFixed(2)} cm
@@ -391,9 +458,12 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
 
           {/* Average Acceleration */}
           <div style={{ background: '#161B27', border: '1px solid #1E2435', borderRadius: 6, padding: '12px' }}>
-            <div className="flex items-center gap-1.5" style={{ color: '#F87171', marginBottom: 4 }}>
-              <Zap style={{ width: 13, height: 13 }} />
-              <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg Acceleration</span>
+            <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+              <div className="flex items-center gap-1.5" style={{ color: '#F87171' }}>
+                <Zap style={{ width: 13, height: 13 }} />
+                <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg Acceleration</span>
+              </div>
+              <span style={{ fontSize: '9px', color: '#C084FC', fontFamily: 'monospace' }}>Simulated</span>
             </div>
             <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#EEF2FF' }}>
               {stats.avg_acceleration.toFixed(2)} g
@@ -403,9 +473,12 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
 
           {/* Average Traffic PCU */}
           <div style={{ background: '#161B27', border: '1px solid #1E2435', borderRadius: 6, padding: '12px' }}>
-            <div className="flex items-center gap-1.5" style={{ color: '#A78BFA', marginBottom: 4 }}>
-              <Car style={{ width: 13, height: 13 }} />
-              <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg Traffic PCU</span>
+            <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+              <div className="flex items-center gap-1.5" style={{ color: '#A78BFA' }}>
+                <Car style={{ width: 13, height: 13 }} />
+                <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg Traffic PCU</span>
+              </div>
+              <span style={{ fontSize: '9px', color: '#C084FC', fontFamily: 'monospace' }}>Simulated</span>
             </div>
             <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#EEF2FF' }}>
               {stats.avg_traffic_pcu.toLocaleString()}
@@ -415,9 +488,12 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
 
           {/* Average Hospital Distance */}
           <div style={{ background: '#161B27', border: '1px solid #1E2435', borderRadius: 6, padding: '12px' }}>
-            <div className="flex items-center gap-1.5" style={{ color: '#34D399', marginBottom: 4 }}>
-              <Hospital style={{ width: 13, height: 13 }} />
-              <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg Hospital Dist.</span>
+            <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+              <div className="flex items-center gap-1.5" style={{ color: '#34D399' }}>
+                <Hospital style={{ width: 13, height: 13 }} />
+                <span style={{ fontSize: '11px', fontWeight: 600 }}>Avg Hospital Dist.</span>
+              </div>
+              <span style={{ fontSize: '9px', color: '#C084FC', fontFamily: 'monospace' }}>Simulated</span>
             </div>
             <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#EEF2FF' }}>
               {stats.avg_hospital_distance.toFixed(2)} km
@@ -448,7 +524,20 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
             <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8892A4' }}>
               Environmental Modality Selection
             </span>
-            <CloudRain style={{ width: 14, height: 14, color: '#38BDF8' }} />
+            <span
+              style={{
+                fontSize: '9px',
+                fontWeight: 700,
+                padding: '2px 6px',
+                borderRadius: 3,
+                background: 'rgba(168,85,247,0.14)',
+                border: '1px solid rgba(168,85,247,0.35)',
+                color: '#C084FC',
+                fontFamily: 'monospace',
+              }}
+            >
+              Simulated
+            </span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
