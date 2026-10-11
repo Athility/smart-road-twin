@@ -14,7 +14,8 @@ from services.backend.app.services.mcdm_engine import (
     MCDMPrioritizationEngine,
     get_fuzzy_bwm_profile,
     encode_road_class,
-    NAMED_BWM_PROFILES
+    NAMED_BWM_PROFILES,
+    THRESHOLD_CALIBRATION_NOTE
 )
 from services.data_generation.infrastructure_model import InfrastructureModel
 from services.cv.preprocessing import load_image, apply_clahe, encode_image_base64, HAS_CV2
@@ -666,6 +667,8 @@ def _execute_prioritization_query(
             "profile": profile_info["profile"],
             "weights": w.tolist(),
             "fuzzy_bwm": profile_info,
+            "priority_thresholds": engine.calibrated_thresholds,
+            "calibration_note": THRESHOLD_CALIBRATION_NOTE,
             "spearman_correlation": 1.0,
             "total": 0,
             "results": []
@@ -747,6 +750,7 @@ def _execute_prioritization_query(
         },
         "criteria": MCDMPrioritizationEngine.get_criteria_specs(extended=(w.shape[0] == 6)),
         "priority_thresholds": engine.calibrated_thresholds,
+        "calibration_note": THRESHOLD_CALIBRATION_NOTE,
         "spearman_correlation": all_res["spearman_correlation"],
         "vikor_checks": {
             "v": all_res["vikor"]["v"],

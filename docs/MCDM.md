@@ -161,29 +161,28 @@ Given an $m \times n$ decision matrix $X = [x_{ij}]$ and normalized weights $w =
 
 $$\rho = 1 - \frac{6 \sum_{i=1}^{m} \left(r_i^{\text{TOPSIS}} - r_i^{\text{VIKOR}}\right)^2}{m(m^2 - 1)}$$
 
-On the 6-record Mumbai SRMD benchmark under the `safety-first` profile, TOPSIS and VIKOR achieve $\rho = 0.6571$:
-- **TOPSIS** (compensatory Euclidean closeness) ranks `SRMD-IND-000045-00` (144.4L submerged pothole on Western Express Highway) as Rank 1 ($C_0^* = 0.5832$).
-- **VIKOR** ($v = 0.5$, balancing group utility $S_i$ and minimax individual regret $R_i$) ranks `SRMD-IND-000102-00` (75.5L pothole with balanced hospital distance $1.31\text{ km}$ and school distance $0.66\text{ km}$, minimizing individual regret $R_1 = 0.1369$) as Rank 1 ($Q_1 = 0.1441$, $1 - Q_1 = 0.8559$), while `SRMD-IND-000278-00` ($0.27\text{ km}$ from a hospital, minimizing group utility $S_4 = 0.2750$) is Rank 2 ($Q_4 = 0.3479$).
+On the 6-record Mumbai SRMD benchmark under the `safety-first` profile (with class-aware `defect_severity_magnitude`, pinhole ground-plane area calibration, and water-surface sonar/LiDAR physics), TOPSIS and VIKOR achieve $\rho = 0.6571$ on the SRMD table ($\rho = 0.5429$ on the live telemetry store where low-luminance acoustic switching is active):
+- **TOPSIS** (compensatory Euclidean closeness) ranks `SRMD-IND-000045-00` ($82.40\text{ L}$ submerged pothole on Western Express Highway) as Rank 1 ($C_0^* = 0.6190$) and `SRMD-IND-000278-00` ($20.28\text{ L}$ highway pothole $0.27\text{ km}$ from trauma hospital) as Rank 2 ($C_4^* = 0.4844$).
+- **VIKOR** ($v = 0.5$, balancing group utility $S_i$ and minimax individual regret $R_i$) ranks `SRMD-IND-000278-00` ($20.28\text{ L}$ pothole $0.27\text{ km}$ from trauma hospital and $0.27\text{ km}$ from school, minimizing both $S_4 = 0.2529$ and $R_4 = 0.2142$) as Rank 1 ($Q_4 = 0.0000$, satisfying both C1 acceptable advantage with $\Delta Q = 0.3539 \ge DQ = 0.2000$ and C2 acceptable stability) and `SRMD-IND-000045-00` as Rank 2 ($Q_0 = 0.3539$).
 
 ---
 
-## 6. Priority Threshold Calibration
+## 6. Threshold calibration
 
-### Why Naïve Quartile Thresholds ($0.75 / 0.50 / 0.25$) Under-Classify Multi-Criteria Hazards
+**Honesty & Methodological Disclosure**: The `Critical`, `High`, and `Medium` priority cut-offs (`0.57` / `0.45` / `0.31`) were chosen empirically so that the 6-record demonstration set spans all four priority levels (`Critical`, `High`, `Medium`, `Low`), and **are not validated against real municipal maintenance outcomes**.
 
-In a 6-dimensional Euclidean space with realistic spatial trade-offs, highway defects (`HIGH_TRAFFIC_CORRIDOR`) exhibit maximum void volume, traffic PCU/day, operating speed, and road class hierarchy, whereas collector/local defects often lie closer to residential schools or municipal hospitals. Because no single real-world defect simultaneously achieves the ideal extremum on all 6 axes, the maximum TOPSIS relative closeness $C_i^*$ across the 6-record SRMD dataset is:
-- `0.5817` (`0.5832` on raw SRMD) under `safety-first`
-- `0.7683` under `traffic-first`
-- `0.6894` under `equity-first`
-- `0.6758` under legacy 4-criteria weights
+Every response from `GET /api/v1/prioritization` and `POST /api/v1/prioritization` includes a top-level `calibration_note` field disclosing this directly to API consumers and UI clients.
 
-Under uncalibrated quartile thresholds ($C_i^* \ge 0.75$), the `safety-first` and `equity-first` profiles produce **zero `Critical` incidents**, failing to trigger urgent dispatch for a 144.5L submerged highway pothole with $2.46g$ confirmed vertical shock.
+### Why Naïve Quartile Thresholds ($0.75 / 0.50 / 0.25$) Compress the Demo Set
 
-### Calibrated Thresholds (`config/sensor_profiles.yaml`)
+In a 6-dimensional Euclidean space with spatial trade-offs, highway defects (`HIGH_TRAFFIC_CORRIDOR`) exhibit higher void volume, traffic PCU/day, operating speed, and road class hierarchy, whereas collector/local defects lie closer to residential schools or municipal hospitals. Because no single defect in the 6-record sample simultaneously achieves the ideal extremum on all 6 axes, the TOPSIS relative closeness $C_i^*$ under `safety-first` ranges from `0.2717` to `0.6190`. Under uncalibrated quartile thresholds ($C_i^* \ge 0.75$), the `safety-first` profile produces zero `Critical` and zero `High` incidents (`0.4844 < 0.50`).
 
-| Priority Level | Calibrated Threshold (`use_calibrated_thresholds=True`) | Legacy Quartile Threshold (Default in `MCDMPrioritizationEngine()`) | Demo Set Count (`safety-first`) |
-| :--- | :---: | :---: | :---: |
-| 🔴 **Critical** | $\ge 0.57$ | $\ge 0.75$ | **1** (`SRMD-IND-000045-00`) |
-| 🟠 **High** | $\ge 0.45$ | $\ge 0.50$ | **2** (`SRMD-IND-000102-00`, `SRMD-IND-000278-00`) |
-| 🟡 **Medium** | $\ge 0.35$ | $\ge 0.25$ | **2** (`SRMD-IND-000278-01`, `SRMD-IND-000155-00`) |
-| 🟢 **Low** | $< 0.35$ | $< 0.25$ | **1** (`SRMD-IND-000210-00`) |
+### Calibrated Cut-Offs (`config/sensor_profiles.yaml`)
+
+| Priority Level | Calibrated Cut-Off (`use_calibrated_thresholds=True`) | Legacy Quartile Threshold (Default in `MCDMPrioritizationEngine()`) | 6-Record Demo Set Count (`safety-first`) |
+| :--- | :---: | :---: | :--- |
+| 🔴 **Critical** | $\ge 0.57$ | $\ge 0.75$ | **1** (`SRMD-IND-000045-00`, $C_i^* = 0.6190$) |
+| 🟠 **High** | $\ge 0.45$ | $\ge 0.50$ | **1** (`SRMD-IND-000278-00`, $C_i^* = 0.4844$) |
+| 🟡 **Medium** | $\ge 0.31$ | $\ge 0.25$ | **2** (`SRMD-IND-000155-00`, $C_i^* = 0.3363$; `SRMD-IND-000102-00`, $C_i^* = 0.3117$) |
+| 🟢 **Low** | $< 0.31$ | $< 0.25$ | **2** (`SRMD-IND-000210-00`, $C_i^* = 0.3067$; `SRMD-IND-000278-01`, $C_i^* = 0.2717$) |
+

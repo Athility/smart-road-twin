@@ -518,22 +518,18 @@ mcdm:
     HIGH_TRAFFIC_CORRIDOR: 4
 
   # Calibrated priority thresholds for multi-criteria relative closeness (TOPSIS C_i and VIKOR 1 - Q_i).
-  # Rationale: In 6-criteria decision spaces with realistic spatial trade-offs (e.g., highway
-  # defects have peak volume/PCU/speed/road_class while collector/local defects have closer hospital
-  # and school proximity), no single alternative simultaneously achieves the ideal extremum on every axis.
-  # Under L2 vector normalization, an alternative dominating physical severity and traffic axes with a
-  # spatial trade-off on hospital/school proximity achieves C_i ≈ 0.58–0.77 across named profiles
-  # (0.5817–0.5832 under safety-first, 0.7683 under traffic-first, 0.6894 under equity-first).
-  # Setting the calibrated thresholds at Critical >= 0.57, High >= 0.45, Medium >= 0.35, Low < 0.35
-  # ensures severe structural hazards (such as the 144.5L submerged pothole SRMD-IND-000045-00)
-  # consistently trigger Critical municipal dispatch across all profiles while populating every tier.
+  # Honesty note: These Critical/High/Medium cut-offs (0.57 / 0.45 / 0.31) were chosen empirically
+  # so the 6-record demo set spans all four priority levels (Critical, High, Medium, Low), and are
+  # NOT validated against real municipal maintenance outcomes.
   priority_thresholds:
     critical: 0.57
     high: 0.45
-    medium: 0.35
+    medium: 0.31
+    calibration_note: "Critical/High/Medium cut-offs were chosen so the 6-record demo set spans all priority levels, and are not validated against real maintenance outcomes."
     legacy_quartiles:
       critical: 0.75
       high: 0.50
       medium: 0.25
+
 
 
