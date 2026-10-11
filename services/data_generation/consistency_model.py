@@ -25,10 +25,18 @@ Physical Laws & Invariants:
    Higher traffic + higher speed + larger defect severity + hospital proximity → higher infrastructure risk.
 """
 
+import logging
 import math
 import random
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+logger = logging.getLogger(__name__)
 
 # Baseline chassis clearance in centimeters
 DEFAULT_CHASSIS_BASELINE_CM = 30.0
@@ -36,6 +44,61 @@ DEFAULT_CHASSIS_BASELINE_CM = 30.0
 # Scaling factor mapping bounded crack_severity_index ∈ [0, 1] to equivalent
 # structural repair magnitude (L-equivalent) for unified MCDM comparison with potholes
 CRACK_SEVERITY_TO_MAGNITUDE_SCALE = 15.0
+
+DEFAULT_CAMERA_CONFIG: Dict[str, Any] = {
+    "model": "pinhole_ground_plane",
+    "camera_height_m": 1.35,
+    "pitch_deg": 22.0,
+    "hfov_deg": 62.0,
+    "vfov_deg": 48.0,
+    "focal_length_px": 650.0,
+    "reference_image_width_px": 720,
+    "reference_image_height_px": 720,
+    "min_depression_deg": 5.0,
+    "class_area_bounds_sqm": {
+        "D40": [0.01, 1.00],
+        "D20": [0.05, 4.00],
+        "D10": [0.01, 1.50],
+        "D00": [0.01, 1.50],
+    },
+}
+
+
+def load_camera_profile_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Loads pinhole camera ground-plane calibration parameters from config/sensor_profiles.yaml."""
+    cfg = {
+        **DEFAULT_CAMERA_CONFIG,
+        "class_area_bounds_sqm": dict(DEFAULT_CAMERA_CONFIG["class_area_bounds_sqm"]),
+    }
+    target = config_path or (Path(__file__).resolve().parents[2] / "config" / "sensor_profiles.yaml")
+    if yaml is not None and target.exists():
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                raw = yaml.safe_load(f) or {}
+            cam = raw.get("camera", {})
+            if isinstance(cam, dict):
+                for k in (
+                    "model",
+                    "camera_height_m",
+                    "pitch_deg",
+                    "hfov_deg",
+                    "vfov_deg",
+                    "focal_length_px",
+                    "reference_image_width_px",
+                    "reference_image_height_px",
+                    "min_depression_deg",
+                ):
+                    if k in cam and cam[k] is not None:
+                        cfg[k] = cam[k]
+                bounds = cam.get("class_area_bounds_sqm")
+                if isinstance(bounds, dict):
+                    for cls_k, pair in bounds.items():
+                        if isinstance(pair, (list, tuple)) and len(pair) == 2:
+                            cfg["class_area_bounds_sqm"][str(cls_k).upper()] = [float(pair[0]), float(pair[1])]
+        except Exception as exc:
+            logger.debug("Fallback to default camera profile config (%s)", exc)
+    return cfg
+
 
 # Canonical class severity prior distributions [min_severity, max_severity]
 CLASS_SEVERITY_PRIORS = {
@@ -61,15 +124,90 @@ def normalize_damage_class_code(damage_class: Optional[str]) -> str:
     return _CLASS_NAME_TO_CODE.get(key, "D40")
 
 
+def estimate_ground_plane_area_pinhole(
+    bbox: List[float],
+    image_dims: Dict[str, int],
+    damage_class: Optional[str] = "D40",
+    camera_cfg: Optional[Dict[str, Any]] = None
+) -> float:
+    """
+    Estimates real-world ground-plane surface area (m^2) using a pinhole camera model:
+    - Converts bbox bottom-edge vertical coordinate (ymax) into depression angle below horizon
+      and ground-plane longitudinal distance Z_bottom (m) using configurable camera height,
+      downward pitch, and focal length / FOV from config/sensor_profiles.yaml.
+    - Projects bbox width (xmax - xmin) and height (ymax - ymin) onto the road plane at Z_bottom.
+    - Clamps to physically plausible per-class bounds (e.g. pothole D40: 0.01 - 1.0 m^2)
+      and logs whenever clamping occurs.
+    """
+    cfg = camera_cfg or load_camera_profile_config()
+    xmin, ymin, xmax, ymax = [float(v) for v in bbox[:4]]
+    width = float(max(1, image_dims.get("width", cfg.get("reference_image_width_px", 720))))
+    height = float(max(1, image_dims.get("height", cfg.get("reference_image_height_px", 720))))
+
+    box_w_px = max(1.0, xmax - xmin)
+    box_h_px = max(1.0, ymax - ymin)
+
+    cam_h_m = float(cfg.get("camera_height_m", 1.35))
+    pitch_rad = math.radians(float(cfg.get("pitch_deg", 22.0)))
+    hfov_rad = math.radians(float(cfg.get("hfov_deg", 62.0)))
+    vfov_rad = math.radians(float(cfg.get("vfov_deg", 48.0)))
+    min_dep_rad = math.radians(float(cfg.get("min_depression_deg", 5.0)))
+
+    # Derive effective horizontal and vertical focal lengths in pixels from FOV / focal_length_px
+    fx = (width / 2.0) / math.tan(max(1e-3, hfov_rad / 2.0))
+    fy = (height / 2.0) / math.tan(max(1e-3, vfov_rad / 2.0))
+
+    # Convert bbox bottom-edge position (ymax) to vertical ray angle relative to optical axis
+    y_center = height / 2.0
+    y_bottom_clamped = min(height, max(0.0, ymax))
+    alpha_bottom = math.atan2(y_bottom_clamped - y_center, fy)
+    depression_rad = max(min_dep_rad, min(math.radians(85.0), pitch_rad + alpha_bottom))
+
+    # Ground-plane longitudinal distance Z (m) to bbox bottom edge
+    z_bottom_m = cam_h_m / math.tan(depression_rad)
+
+    # Real-world lateral width (m) and ground-foreshortened longitudinal length (m)
+    real_width_m = (box_w_px * z_bottom_m) / fx
+    real_length_m = (box_h_px * z_bottom_m) / (fy * math.sin(depression_rad))
+    raw_area_sqm = real_width_m * real_length_m
+
+    cls_code = normalize_damage_class_code(damage_class)
+    bounds_map = cfg.get("class_area_bounds_sqm", DEFAULT_CAMERA_CONFIG["class_area_bounds_sqm"])
+    min_area, max_area = bounds_map.get(cls_code, [0.01, 1.00])
+    min_area = float(min_area)
+    max_area = float(max_area)
+
+    if raw_area_sqm < min_area or raw_area_sqm > max_area:
+        clamped_area = max(min_area, min(max_area, raw_area_sqm))
+        logger.warning(
+            "Clamped ground-plane area for class %s from %.4f m^2 to %.4f m^2 (bounds=[%.2f, %.2f], Z_bottom=%.2fm)",
+            cls_code,
+            raw_area_sqm,
+            clamped_area,
+            min_area,
+            max_area,
+            z_bottom_m,
+        )
+        return round(clamped_area, 3)
+
+    return round(raw_area_sqm, 3)
+
+
 class PhysicalConsistencyModel:
     """
     Unified physical consistency engine that resolves latent defect severity
     and derives correlated physical, sensor, dynamic, and municipal risk properties.
     """
-    def __init__(self, seed: int = 2026, baseline_chassis_cm: float = DEFAULT_CHASSIS_BASELINE_CM):
+    def __init__(
+        self,
+        seed: int = 2026,
+        baseline_chassis_cm: float = DEFAULT_CHASSIS_BASELINE_CM,
+        camera_config: Optional[Dict[str, Any]] = None
+    ):
         self.seed = seed
         self.baseline_chassis_cm = baseline_chassis_cm
         self.rng = random.Random(seed)
+        self.camera_config = camera_config or load_camera_profile_config()
 
     def reseed(self, seed: int):
         self.seed = seed
@@ -78,24 +216,21 @@ class PhysicalConsistencyModel:
     def compute_perspective_surface_area(
         self,
         bbox: List[float],
-        image_dims: Dict[str, int]
+        image_dims: Dict[str, int],
+        damage_class: Optional[str] = "D40"
     ) -> float:
         """
-        Calculates ground-plane surface area in square meters using bounding box
-        dimensions and camera perspective geometry.
+        Calculates ground-plane surface area in square meters using a pinhole camera
+        ground-plane model (camera height, downward pitch, FOV/focal length from
+        config/sensor_profiles.yaml), converting bbox bottom-edge position (ymax) to
+        real-world meters and clamping to per-class physical bounds.
         """
-        xmin, ymin, xmax, ymax = bbox
-        width = max(1, image_dims.get("width", 720))
-        height = max(1, image_dims.get("height", 720))
-
-        box_w = max(1.0, xmax - xmin)
-        box_h = max(1.0, ymax - ymin)
-        norm_area = (box_w * box_h) / (width * height)
-
-        # Objects located lower in the frame (higher ymin) are closer to the front bumper
-        perspective_weight = 1.0 + (ymin / height) * 0.75
-        area_sqm = round(norm_area * 14.0 * perspective_weight, 3)
-        return max(0.05, min(12.0, area_sqm))
+        return estimate_ground_plane_area_pinhole(
+            bbox=bbox,
+            image_dims=image_dims,
+            damage_class=damage_class,
+            camera_cfg=self.camera_config
+        )
 
     def derive_latent_severity(
         self,
@@ -112,16 +247,16 @@ class PhysicalConsistencyModel:
         s_min = prior["min_s"]
         s_max = prior["max_s"]
 
-        # Scale severity monotonically with observed geometric area
+        # Scale severity monotonically with observed geometric area within per-class bounds
         if cls_code == "D40":
-            # Pothole area normalization: 0.1 m² (small) to 2.5 m² (huge)
-            area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.1) / 2.4))
+            # Pothole area normalization: 0.01 m² (small) to 1.00 m² (clamped max)
+            area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.01) / 0.99))
         elif cls_code == "D20":
-            # Alligator area normalization: 0.2 m² to 4.0 m²
-            area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.2) / 3.8))
+            # Alligator area normalization: 0.05 m² to 4.00 m²
+            area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.05) / 3.95))
         else:
-            # Linear cracks: 0.05 m² to 1.5 m²
-            area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.05) / 1.45))
+            # Linear cracks: 0.01 m² to 1.50 m²
+            area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.01) / 1.49))
 
         # Base severity interpolated between min and max prior
         base_s = s_min + (s_max - s_min) * (area_factor ** 0.8)

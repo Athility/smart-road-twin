@@ -175,8 +175,12 @@ class SRMDRecordBuilder:
         width = image_dims.get("width", 720)
         height = image_dims.get("height", 720)
 
-        # 1. Surface area estimation from bounding box & perspective projection
-        surface_area_sqm = self.consistency.compute_perspective_surface_area(bbox, image_dims)
+        # 1. Surface area estimation from bounding box & pinhole ground-plane projection
+        surface_area_sqm = self.consistency.compute_perspective_surface_area(
+            bbox,
+            image_dims,
+            damage_class=damage_class
+        )
 
         # 2. Derive latent defect_severity ∈ [0.0, 1.0]
         defect_severity = self.consistency.derive_latent_severity(damage_class, surface_area_sqm)

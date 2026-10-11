@@ -470,6 +470,22 @@ location:
         lon: 72.8460
         chainage_km: 15.1
 
+camera:
+  model: "pinhole_ground_plane"
+  camera_height_m: 1.35          # Dashboard / windshield camera mounting height above road surface (m)
+  pitch_deg: 22.0                # Downward camera pitch angle relative to horizon (deg)
+  hfov_deg: 62.0                 # Horizontal field of view (deg)
+  vfov_deg: 48.0                 # Vertical field of view (deg)
+  focal_length_px: 650.0         # Reference focal length in pixels (for 720x720 sensor frame)
+  reference_image_width_px: 720
+  reference_image_height_px: 720
+  min_depression_deg: 5.0        # Minimum depression angle below horizon to avoid horizon singularity
+  class_area_bounds_sqm:
+    D40: [0.01, 1.00]            # Pothole physically plausible footprint (0.01 - 1.0 m^2)
+    D20: [0.05, 4.00]            # Alligator crack footprint (0.05 - 4.0 m^2)
+    D10: [0.01, 1.50]            # Transverse crack footprint (0.01 - 1.5 m^2)
+    D00: [0.01, 1.50]            # Longitudinal crack footprint (0.01 - 1.5 m^2)
+
 preprocessing:
   enable_clahe: true
   clahe_clip_limit: 2.0

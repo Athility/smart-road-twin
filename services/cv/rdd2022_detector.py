@@ -101,17 +101,21 @@ class RDD2022Detector(RoadDamageDetector):
         self,
         bbox: BoundingBox,
         img_w: int,
-        img_h: int
+        img_h: int,
+        damage_class: Optional[str] = "D40"
     ) -> float:
         """
-        Estimates ground-plane surface area in square meters using bounding box
-        dimensions and camera perspective projection.
+        Estimates ground-plane surface area in square meters using the pinhole camera
+        ground-plane model (camera height, pitch, focal length/FOV in config/sensor_profiles.yaml),
+        converting bbox bottom-edge position (ymax) to real-world meters and clamping
+        to physically plausible per-class bounds (pothole 0.01 - 1.0 m^2).
         """
-        norm_area = (bbox.width * bbox.height) / (img_w * img_h)
-        # Objects lower in the frame are closer to the bumper
-        perspective_weight = 1.0 + (bbox.ymin / img_h) * 0.75
-        area_sqm = round(norm_area * 14.0 * perspective_weight, 3)
-        return max(0.05, min(12.0, area_sqm))
+        from services.data_generation.consistency_model import estimate_ground_plane_area_pinhole
+        return estimate_ground_plane_area_pinhole(
+            bbox=[bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax],
+            image_dims={"width": img_w, "height": img_h},
+            damage_class=damage_class
+        )
 
     def detect(
         self,
@@ -196,7 +200,12 @@ class RDD2022Detector(RoadDamageDetector):
                 label = "Road Damage"
                 slug = "road_damage"
 
-            surface_area = self.compute_perspective_surface_area(bbox, orig_w, orig_h)
+            surface_area = self.compute_perspective_surface_area(
+                bbox,
+                orig_w,
+                orig_h,
+                damage_class=cls_id
+            )
 
             detections.append(
                 DamageDetection(

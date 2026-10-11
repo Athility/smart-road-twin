@@ -67,24 +67,18 @@ class SensorAugmentationEngine:
     def compute_surface_area_sqm(
         self,
         bbox: List[float],
-        image_dims: Dict[str, int]
+        image_dims: Dict[str, int],
+        damage_class: Optional[str] = "D40"
     ) -> float:
         """
-        Estimate ground-plane surface area in square meters using bounding box dimensions
-        and perspective projection camera geometry.
+        Estimate ground-plane surface area in square meters using the pinhole camera
+        ground-plane model and per-class clamping.
         """
-        xmin, ymin, xmax, ymax = bbox
-        width = max(1, image_dims.get("width", 720))
-        height = max(1, image_dims.get("height", 720))
-
-        box_w = max(1.0, xmax - xmin)
-        box_h = max(1.0, ymax - ymin)
-        norm_area = (box_w * box_h) / (width * height)
-
-        # Lower bounding box coordinates indicate roadway closer to vehicle bumper
-        perspective_factor = 1.0 + (ymin / height) * 0.75
-        area_sqm = round(norm_area * 14.0 * perspective_factor, 3)
-        return max(0.05, min(12.0, area_sqm))
+        return self.consistency.compute_perspective_surface_area(
+            bbox=bbox,
+            image_dims=image_dims,
+            damage_class=damage_class
+        )
 
     def augment_defect(
         self,
@@ -103,7 +97,11 @@ class SensorAugmentationEngine:
         Produce a full, physically plausible multimodal SRMD record for a single defect.
         """
         tax = CLASS_TAXONOMY.get(damage_class, {"class_name": "pothole", "label": "Pothole"})
-        surface_area_sqm = self.consistency.compute_perspective_surface_area(bbox, image_dims)
+        surface_area_sqm = self.consistency.compute_perspective_surface_area(
+            bbox,
+            image_dims,
+            damage_class=damage_class
+        )
 
         # 1. Latent Defect Severity
         defect_severity = self.consistency.derive_latent_severity(damage_class, surface_area_sqm)
