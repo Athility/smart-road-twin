@@ -15,7 +15,8 @@ from services.backend.app.services.mcdm_engine import (
     get_fuzzy_bwm_profile,
     encode_road_class,
     NAMED_BWM_PROFILES,
-    THRESHOLD_CALIBRATION_NOTE
+    THRESHOLD_CALIBRATION_NOTE,
+    build_mcdm_row_from_store_item,
 )
 from services.data_generation.infrastructure_model import InfrastructureModel
 from services.cv.preprocessing import load_image, apply_clahe, encode_image_base64, HAS_CV2
@@ -106,14 +107,10 @@ def _get_item_severity_magnitude(item: Dict[str, Any]) -> float:
 
 
 def _build_record_6criteria_row(item: Dict[str, Any]) -> List[float]:
-    return [
-        _get_item_severity_magnitude(item),
-        float(item["traffic_pcu"]),
-        float(item["dist_hospital_km"]),
-        float(item["speed_kmh"]),
-        float(item.get("school_proximity_km", 0.5)),
-        float(encode_road_class(item.get("road_class", "ARTERIAL")))
-    ]
+    """Delegates to the shared MCDM row builder (see mcdm_engine.build_mcdm_row_from_store_item)."""
+    return build_mcdm_row_from_store_item(item)
+
+
 
 def recompute_topsis_for_all():
     if not telemetry_store:
@@ -251,13 +248,14 @@ def _load_srmd_records_into_store() -> bool:
                 )
                 depth_eval["estimated_depth_cm"] = r["environment"]["selected_depth_cm"]
                 depth_eval["detection_modality"] = r["environment"]["preferred_modality"]
-                if depth_eval["detection_modality"] != "sonar_submerged_acoustic":
-                    depth_eval["calculated_volume_liters"] = r["visual"].get("calculated_volume_liters")
-                    depth_eval["crack_severity_index"] = r["visual"].get("crack_severity_index", depth_eval.get("crack_severity_index"))
-                    depth_eval["defect_severity_magnitude"] = r["visual"].get(
-                        "defect_severity_magnitude",
-                        depth_eval.get("defect_severity_magnitude", 0.0)
-                    )
+                # Always restore the pre-computed visual fields from the SRMD JSON so
+                # the decision-matrix row is identical whether built from the JSON or the
+                # telemetry_store item (fixes SRMD-path vs API-path rho discrepancy).
+                depth_eval["calculated_volume_liters"] = r["visual"].get("calculated_volume_liters")
+                depth_eval["crack_severity_index"] = r["visual"].get("crack_severity_index")
+                depth_eval["defect_severity_magnitude"] = float(
+                    r["visual"].get("defect_severity_magnitude", 0.0)
+                )
                 depth_eval["dynamic_impact_confirmed"] = r["accelerometer"]["dynamic_impact_triggered"]
 
                 lat = float(r["location"]["latitude"])

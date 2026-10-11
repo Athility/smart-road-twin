@@ -203,6 +203,65 @@ def load_calibrated_thresholds(config_path: Optional[Path] = None) -> Dict[str, 
 
 
 # ============================================================================
+# Shared Decision-Matrix Row Builders
+# ============================================================================
+
+def build_mcdm_row_from_srmd(r: Dict[str, Any]) -> List[float]:
+    """
+    Builds the canonical 6-criteria MCDM decision-matrix row from a raw SRMD JSON record.
+
+    Criteria order (matches EXTENDED_CRITERIA_SPECS):
+        [0] defect_severity_magnitude  -- r["visual"]["defect_severity_magnitude"]
+        [1] traffic_pcu                -- r["traffic"]["pcu"]
+        [2] dist_hospital_km           -- r["infrastructure"]["dist_hospital_km"]
+        [3] speed_kmh                  -- r["accelerometer"]["vehicle_speed_kmh"]
+        [4] school_proximity_km        -- r["infrastructure"]["school_proximity_km"]
+        [5] road_class_weight          -- r["traffic"]["road_class_weight"]
+
+    Single source-of-truth used by both the SRMD-path test and the API load
+    path, ensuring identical matrices and identical Spearman rho.
+    """
+    return [
+        float(r["visual"]["defect_severity_magnitude"]),
+        float(r["traffic"]["pcu"]),
+        float(r["infrastructure"]["dist_hospital_km"]),
+        float(r["accelerometer"]["vehicle_speed_kmh"]),
+        float(r["infrastructure"]["school_proximity_km"]),
+        float(r["traffic"]["road_class_weight"]),
+    ]
+
+
+def build_mcdm_row_from_store_item(item: Dict[str, Any]) -> List[float]:
+    """
+    Builds the canonical 6-criteria MCDM decision-matrix row from a telemetry_store item.
+
+    The telemetry_store item must have been populated from the SRMD JSON via
+    _load_srmd_records_into_store(), which preserves the pre-computed
+    defect_severity_magnitude from r["visual"] rather than recomputing it.
+
+    Criteria order matches build_mcdm_row_from_srmd() exactly:
+        [0] defect_severity_magnitude  -- item["processed_telemetry"]["defect_severity_magnitude"]
+        [1] traffic_pcu                -- item["traffic_pcu"]
+        [2] dist_hospital_km           -- item["dist_hospital_km"]
+        [3] speed_kmh                  -- item["speed_kmh"]
+        [4] school_proximity_km        -- item["school_proximity_km"]
+        [5] road_class_weight          -- encode_road_class(item["road_class"])
+    """
+    pt = item.get("processed_telemetry", {})
+    mag = pt.get("defect_severity_magnitude")
+    if mag is None:
+        mag = pt.get("calculated_volume_liters") or 0.0
+    return [
+        float(mag),
+        float(item["traffic_pcu"]),
+        float(item["dist_hospital_km"]),
+        float(item["speed_kmh"]),
+        float(item.get("school_proximity_km", 0.5)),
+        float(encode_road_class(item.get("road_class", "ARTERIAL"))),
+    ]
+
+
+# ============================================================================
 # Fuzzy BWM (Best-Worst Method with Triangular Fuzzy Numbers)
 # ============================================================================
 

@@ -274,38 +274,50 @@ class TestAPIAndStore(unittest.TestCase):
         self.assertGreaterEqual(summary["total_defects"], 4)
 
     def test_seed_initial_data_sonar_volume_not_overwritten(self):
+        """
+        Task 1: processed_telemetry["defect_severity_magnitude"] and
+        processed_telemetry["calculated_volume_liters"] / ["crack_severity_index"]
+        must always equal the pre-computed values stored in the SRMD JSON visual block,
+        regardless of which sensor modality was active.
+        This ensures the SRMD-path and API-path decision matrices are identical.
+        """
         srmd_file = PROJECT_ROOT / "data" / "processed" / "srmd" / "srmd_records.json"
         self.assertTrue(srmd_file.exists())
         srmd_by_id = {
             r["event_id"]: r
             for r in json.loads(srmd_file.read_text(encoding="utf-8"))
         }
-        sonar_records = [
-            rec for rec in main.telemetry_store
-            if rec.get("id") in srmd_by_id
-            and rec["processed_telemetry"]["detection_modality"] == "sonar_submerged_acoustic"
-        ]
-        self.assertGreater(len(sonar_records), 0, "Expected at least one sonar-mode record in seeded store")
-        for rec in sonar_records:
-            raw_srmd = srmd_by_id[rec["id"]]
-            sonar_depth = max(0.0, float(rec["sonar_depth_cm"]) - 30.0)
-            area_sqm = float(rec["surface_area_sqm"])
-            if rec.get("damage_class") == "D40":
-                expected_sonar_vol = round((0.5 * (area_sqm * 10000.0) * sonar_depth) / 1000.0, 2)
-                self.assertAlmostEqual(
-                    rec["processed_telemetry"]["calculated_volume_liters"],
-                    expected_sonar_vol,
-                    places=2
-                )
-                if raw_srmd["sonar"]["depth_cm"] != raw_srmd["lidar"]["depth_cm"]:
-                    self.assertNotEqual(
-                        rec["processed_telemetry"]["calculated_volume_liters"],
-                        raw_srmd["visual"]["calculated_volume_liters"]
-                    )
+        self.assertEqual(len(main.telemetry_store), len(srmd_by_id),
+                         "telemetry_store size must match srmd_records.json")
+        for rec in main.telemetry_store:
+            raw = srmd_by_id[rec["id"]]
+            pt = rec["processed_telemetry"]
+            self.assertAlmostEqual(
+                pt["defect_severity_magnitude"],
+                float(raw["visual"]["defect_severity_magnitude"]),
+                places=4,
+                msg=f"magnitude mismatch for {rec['id']}: "
+                    f"store={pt['defect_severity_magnitude']}, "
+                    f"srmd={raw['visual']['defect_severity_magnitude']}"
+            )
+            srmd_vol = raw["visual"].get("calculated_volume_liters")
+            srmd_csi = raw["visual"].get("crack_severity_index")
+            if srmd_vol is None:
+                self.assertIsNone(pt.get("calculated_volume_liters"),
+                                  f"Expected None volume for {rec['id']}")
             else:
-                self.assertIsNone(rec["processed_telemetry"]["calculated_volume_liters"])
-                self.assertIsNotNone(rec["processed_telemetry"]["crack_severity_index"])
-
+                self.assertAlmostEqual(
+                    pt["calculated_volume_liters"], float(srmd_vol), places=4,
+                    msg=f"volume mismatch for {rec['id']}"
+                )
+            if srmd_csi is None:
+                self.assertIsNone(pt.get("crack_severity_index"),
+                                  f"Expected None CSI for {rec['id']}")
+            else:
+                self.assertAlmostEqual(
+                    pt["crack_severity_index"], float(srmd_csi), places=4,
+                    msg=f"CSI mismatch for {rec['id']}"
+                )
 
 
 class TestSmartRoadMultimodalDataset(unittest.TestCase):
@@ -2070,20 +2082,11 @@ class TestBackendCLAHEMCDMAndPrioritization(unittest.TestCase):
         self.assertGreaterEqual(len(vikor_tie["compromise_solution"]), 2)
 
     def test_compute_all_topsis_vikor_and_spearman(self):
+        from services.backend.app.services.mcdm_engine import build_mcdm_row_from_srmd
         engine = MCDMPrioritizationEngine(profile="safety-first", use_calibrated_thresholds=True)
         srmd_file = PROJECT_ROOT / "data" / "processed" / "srmd" / "srmd_records.json"
         records = json.loads(srmd_file.read_text(encoding="utf-8"))
-        matrix = np.array([
-            [
-                r["visual"]["defect_severity_magnitude"],
-                r["traffic"]["pcu"],
-                r["infrastructure"]["dist_hospital_km"],
-                r["accelerometer"]["vehicle_speed_kmh"],
-                r["infrastructure"]["school_proximity_km"],
-                r["traffic"]["road_class_weight"],
-            ]
-            for r in records
-        ])
+        matrix = np.array([build_mcdm_row_from_srmd(r) for r in records])
         res = engine.compute_all(matrix, v=0.5, calibrated=True)
         self.assertEqual(len(res["topsis_ranks"]), len(records))
         self.assertEqual(len(res["vikor_ranks"]), len(records))
@@ -2095,6 +2098,38 @@ class TestBackendCLAHEMCDMAndPrioritization(unittest.TestCase):
         # VIKOR ranks one of the two highway potholes (index 0 or 4) as Rank 1.
         self.assertEqual(res["topsis_ranks"][0], 1)
         self.assertIn(1, (res["vikor_ranks"][0], res["vikor_ranks"][4]))
+
+    def test_srmd_and_api_matrix_are_identical(self):
+        """
+        Task 1 regression: SRMD-path matrix (built via build_mcdm_row_from_srmd) must be
+        element-wise equal to the API-path matrix (built via build_mcdm_row_from_store_item).
+        Guarantees a single Spearman rho value across both code paths.
+        """
+        from services.backend.app.services.mcdm_engine import (
+            build_mcdm_row_from_srmd,
+            build_mcdm_row_from_store_item,
+        )
+        import main as app_module
+        srmd_file = PROJECT_ROOT / "data" / "processed" / "srmd" / "srmd_records.json"
+        records = json.loads(srmd_file.read_text(encoding="utf-8"))
+        mat_srmd = np.array([build_mcdm_row_from_srmd(r) for r in records])
+
+        store_items = list(app_module.telemetry_store)
+        self.assertEqual(len(store_items), len(records))
+        id_to_item = {it["id"]: it for it in store_items}
+        mat_api = np.array([
+            build_mcdm_row_from_store_item(id_to_item[r["event_id"]])
+            for r in records
+        ])
+        self.assertTrue(
+            np.allclose(mat_srmd, mat_api, rtol=1e-5, atol=1e-6),
+            f"Decision matrices differ:\nSRMD:\n{mat_srmd}\nAPI:\n{mat_api}"
+        )
+        engine = MCDMPrioritizationEngine(profile="safety-first", use_calibrated_thresholds=True)
+        rho_srmd = engine.compute_all(mat_srmd, v=0.5, calibrated=True)["spearman_correlation"]
+        rho_api  = engine.compute_all(mat_api,  v=0.5, calibrated=True)["spearman_correlation"]
+        self.assertAlmostEqual(rho_srmd, rho_api, places=4,
+                               msg=f"rho divergence: SRMD={rho_srmd}, API={rho_api}")
 
     def test_school_registry_and_road_class_criteria(self):
         from services.data_generation.infrastructure_model import (
