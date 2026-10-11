@@ -20,7 +20,8 @@ def check(label, url, checks):
 # 1. Telemetry endpoint
 req = urllib.request.urlopen(f"{BASE}/api/v1/telemetry/ingest")
 data = json.loads(req.read())
-events = data.get("events", [])
+events = data.get("data", [])
+assert len(events) > 0, "Expected at least one telemetry event"
 print(f"[OK] GET /api/v1/telemetry/ingest - {len(events)} events")
 
 # 2. Validate event provenance fields
