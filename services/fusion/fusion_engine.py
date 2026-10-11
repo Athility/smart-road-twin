@@ -180,13 +180,15 @@ class MultimodalDataFusionEngine:
 
             # Generate physically consistent sensor, dynamic, and context telemetry
             veh_speed = speed_kmh if speed_kmh is not None else 40.0
+            bbox_list = [det.bbox.xmin, det.bbox.ymin, det.bbox.xmax, det.bbox.ymax]
             consistent_telemetry = self.consistency_model.derive_consistent_telemetry(
                 damage_class=det.class_id,
                 surface_area_sqm=surface_area,
                 rain_detected=rain_detected,
                 luminance_lux=mean_luminance,
                 vehicle_speed_kmh=veh_speed,
-                road_class=road_class
+                road_class=road_class,
+                bbox=bbox_list
             )
 
             # Apply Environmental Sensor Switching
@@ -196,7 +198,9 @@ class MultimodalDataFusionEngine:
                 lidar_depth_cm=consistent_telemetry["sensors"]["lidar_depth_cm"],
                 sonar_depth_cm=consistent_telemetry["sensors"]["sonar_depth_cm"],
                 z_accel_g=consistent_telemetry["accelerometer"]["z_accel_g"],
-                surface_area_sqm=surface_area
+                surface_area_sqm=surface_area,
+                damage_class=det.class_id,
+                bbox=bbox_list
             )
 
             # Resolve infrastructure context
@@ -212,7 +216,7 @@ class MultimodalDataFusionEngine:
                 image_id=resolved_img_id,
                 damage_class=det.class_id,
                 damage_label=det.class_label,
-                bbox=[det.bbox.xmin, det.bbox.ymin, det.bbox.xmax, det.bbox.ymax],
+                bbox=bbox_list,
                 confidence=det.confidence,
                 surface_area_sqm=surface_area,
                 image_width=img_w,
@@ -234,6 +238,8 @@ class MultimodalDataFusionEngine:
                 active_modality=switching_res["detection_modality"],
                 effective_depth_cm=switching_res["estimated_depth_cm"],
                 calculated_volume_liters=switching_res["calculated_volume_liters"],
+                crack_severity_index=switching_res["crack_severity_index"],
+                defect_severity_magnitude=switching_res["defect_severity_magnitude"],
                 z_accel_g=consistent_telemetry["accelerometer"]["z_accel_g"],
                 dynamic_impact_confirmed=switching_res["dynamic_impact_confirmed"],
                 impact_regime=consistent_telemetry["accelerometer"]["impact_regime"],
@@ -298,7 +304,7 @@ class MultimodalDataFusionEngine:
         return events
 
     def _apply_topsis_to_events(self, events: List[RoadDefectEvent]) -> None:
-        """Computes TOPSIS scores and ranks for a collection of events."""
+        """Computes TOPSIS scores and ranks for a collection of events using unified defect_severity_magnitude."""
         if not events:
             return
 
@@ -307,9 +313,14 @@ class MultimodalDataFusionEngine:
             ref_worst = [0.1, 1000.0, 10.0, 10.0]
             ref_best = [80.0, 30000.0, 0.1, 70.0]
             ev = events[0]
+            sev_mag = float(
+                ev.sensor.defect_severity_magnitude
+                if ev.sensor.defect_severity_magnitude is not None
+                else (ev.sensor.calculated_volume_liters or 0.0)
+            )
             mat = np.array([
                 [
-                    ev.sensor.calculated_volume_liters,
+                    sev_mag,
                     float(ev.infrastructure.traffic_pcu),
                     ev.infrastructure.dist_hospital_km,
                     ev.infrastructure.speed_kmh
@@ -321,7 +332,7 @@ class MultimodalDataFusionEngine:
             score = float(scores[0])
             ev.topsis = TOPSISAssessment(
                 criteria_vector=[
-                    ev.sensor.calculated_volume_liters,
+                    sev_mag,
                     float(ev.infrastructure.traffic_pcu),
                     ev.infrastructure.dist_hospital_km,
                     ev.infrastructure.speed_kmh
@@ -335,8 +346,13 @@ class MultimodalDataFusionEngine:
         # Multiple alternatives: build decision matrix
         rows = []
         for ev in events:
+            sev_mag = float(
+                ev.sensor.defect_severity_magnitude
+                if ev.sensor.defect_severity_magnitude is not None
+                else (ev.sensor.calculated_volume_liters or 0.0)
+            )
             rows.append([
-                ev.sensor.calculated_volume_liters,
+                sev_mag,
                 float(ev.infrastructure.traffic_pcu),
                 ev.infrastructure.dist_hospital_km,
                 ev.infrastructure.speed_kmh

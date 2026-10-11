@@ -41,7 +41,9 @@ class SensorEvidence(BaseModel):
     sonar_depth_cm: float = Field(..., description="Raw acoustic distance from chassis to defect floor (cm)")
     active_modality: str = Field(..., description="Active sensor selected by switching logic ('optical_lidar' or 'sonar_submerged_acoustic')")
     effective_depth_cm: float = Field(..., description="Effective cavity depth below pavement grade (cm)")
-    calculated_volume_liters: float = Field(..., description="Calculated geometric defect volume in liters")
+    calculated_volume_liters: Optional[float] = Field(None, description="Calculated geometric defect volume in liters (D40 potholes only)")
+    crack_severity_index: Optional[float] = Field(None, description="Normalized [0, 1] crack severity index (D00/D10/D20 cracks only)")
+    defect_severity_magnitude: float = Field(0.0, description="Unified MCDM severity magnitude (volume for potholes, scaled crack_severity_index for cracks)")
     z_accel_g: float = Field(..., description="Peak vertical acceleration impact shock in g")
     dynamic_impact_confirmed: bool = Field(..., description="True if vertical acceleration exceeds 1.50g threshold")
     impact_regime: str = Field("no_impact", description="Physical impact regime ('confirmed_impact', 'borderline', 'no_impact')")
@@ -67,7 +69,7 @@ class InfrastructureContext(BaseModel):
 
 class TOPSISAssessment(BaseModel):
     """Multi-Criteria Decision Making priority ranking."""
-    criteria_vector: List[float] = Field(..., description="[volume_liters, traffic_pcu, dist_hospital_km, speed_kmh]")
+    criteria_vector: List[float] = Field(..., description="[defect_severity_magnitude, traffic_pcu, dist_hospital_km, speed_kmh]")
     topsis_score: float = Field(..., description="Relative closeness to ideal solution ∈ [0.0, 1.0]")
     priority_level: str = Field(..., description="Prioritization category ('Critical', 'High', 'Medium', 'Low')")
     rank: Optional[int] = Field(None, description="Relative priority rank among evaluated alternatives")
@@ -119,6 +121,8 @@ class RoadDefectEvent(BaseModel):
                 "is_submerged": self.environmental.rain_detected,
                 "estimated_depth_cm": self.sensor.effective_depth_cm,
                 "calculated_volume_liters": self.sensor.calculated_volume_liters,
+                "crack_severity_index": self.sensor.crack_severity_index,
+                "defect_severity_magnitude": self.sensor.defect_severity_magnitude,
                 "dynamic_impact_confirmed": self.sensor.dynamic_impact_confirmed
             },
             "topsis_score": self.topsis.topsis_score if self.topsis else 0.0,

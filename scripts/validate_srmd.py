@@ -201,16 +201,26 @@ def validate_single_record(record: Dict[str, Any], record_idx: int = 0) -> List[
     if not impact_triggered and z_accel is not None and z_accel > 1.50:
         errors.append(f"[{eid}] Rule 15 Failed: z_accel_g={z_accel} > 1.50g but dynamic_impact_triggered=False")
 
-    # 16. Relationship: If volume > 0 -> depth > 0 AND area > 0
-    vol = vis.get("calculated_volume_liters", 0.0)
+    # 16. Class-aware volume / crack severity consistency:
+    # - D40 (pothole): calculated_volume_liters must be numeric and volume > 0 <=> (depth > 0 AND area > 0)
+    # - D00/D10/D20 (cracks): calculated_volume_liters must be None and crack_severity_index in [0.0, 1.0]
+    vol = vis.get("calculated_volume_liters")
+    csi = vis.get("crack_severity_index")
     area = vis.get("surface_area_sqm", 0.0)
-    if vol > 0.0:
-        if eff_depth is None or eff_depth <= 0.0 or area is None or area <= 0.0:
-            errors.append(f"[{eid}] Rule 16 Failed: volume={vol} > 0 but depth={eff_depth} and area={area}")
-    elif eff_depth is not None and eff_depth > 0.0 and area is not None and area > 0.0:
-        # If both depth and area are positive, volume must be positive
-        if vol <= 0.0:
-            errors.append(f"[{eid}] Rule 16 Failed: depth={eff_depth} > 0 and area={area} > 0 but volume={vol} <= 0")
+    if ann_cls == "D40":
+        if vol is None:
+            errors.append(f"[{eid}] Rule 16 Failed: D40 pothole must have numeric calculated_volume_liters")
+        elif vol > 0.0:
+            if eff_depth is None or eff_depth <= 0.0 or area is None or area <= 0.0:
+                errors.append(f"[{eid}] Rule 16 Failed: volume={vol} > 0 but depth={eff_depth} and area={area}")
+        elif eff_depth is not None and eff_depth > 0.0 and area is not None and area > 0.0:
+            if vol <= 0.0:
+                errors.append(f"[{eid}] Rule 16 Failed: depth={eff_depth} > 0 and area={area} > 0 but volume={vol} <= 0")
+    else:
+        if vol is not None:
+            errors.append(f"[{eid}] Rule 16 Failed: Crack class {ann_cls} must have calculated_volume_liters=None (got {vol})")
+        if csi is None or not (0.0 <= float(csi) <= 1.0):
+            errors.append(f"[{eid}] Rule 16 Failed: Crack class {ann_cls} must have crack_severity_index in [0, 1] (got {csi})")
 
     return errors
 

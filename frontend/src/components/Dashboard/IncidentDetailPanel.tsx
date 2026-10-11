@@ -498,7 +498,7 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         valueColor="#38BDF8"
       />
 
-      {/* ── 6. Selected modality ───────────────────────────────────────────── */}
+      {/* ── 6. Selected modality & Volume / Crack Severity ─────────────────── */}
       <SectionBadge number={6} title="Selected Modality" />
       <div
         className="flex items-center justify-between"
@@ -520,6 +520,24 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
           {isSonar ? '⦿ Acoustic Sonar' : '◉ Optical LiDAR'}
         </span>
       </div>
+      <Row
+        icon={<Ruler style={{ width: 13, height: 13 }} />}
+        label={damageClassCode === 'D40' ? 'Volume (L)' : 'Crack severity'}
+        value={
+          damageClassCode === 'D40' && pt?.calculated_volume_liters != null
+            ? `${pt.calculated_volume_liters.toFixed(2)} L`
+            : pt?.crack_severity_index != null
+            ? `${pt.crack_severity_index.toFixed(3)}`
+            : '—'
+        }
+        subvalue={
+          damageClassCode === 'D40'
+            ? `Footprint: ${record.surface_area_sqm.toFixed(3)} m²`
+            : `Normalized [0–1] severity · Footprint: ${record.surface_area_sqm.toFixed(3)} m²`
+        }
+        mono
+        valueColor={damageClassCode === 'D40' ? '#60A5FA' : '#A78BFA'}
+      />
 
       {/* ── 7. Accelerometer ───────────────────────────────────────────────── */}
       <SectionBadge number={7} title="Accelerometer (Z-Axis)" />

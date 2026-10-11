@@ -127,6 +127,7 @@ class FusionExperimentRunner:
         measurable comparative outcomes.
         """
         from services.data_generation.infrastructure_model import encode_road_class
+        from services.data_generation.consistency_model import PhysicalConsistencyModel
 
         dataset = records if records is not None else self.load_dataset_records()
         if not dataset:
@@ -137,14 +138,22 @@ class FusionExperimentRunner:
         # 1. Compute reference ranking using Experiment E (Ground Truth Multimodal 6-Criteria)
         ref_matrix = []
         for r in dataset:
-            vol = float(r.get("visual", {}).get("calculated_volume_liters", 10.0))
+            vis = r.get("visual", {})
+            dmg_cls = r.get("source", {}).get("annotation_class", "D40")
+            vol = vis.get("calculated_volume_liters")
+            csi = vis.get("crack_severity_index")
+            sev_mag = float(
+                vis["defect_severity_magnitude"]
+                if vis.get("defect_severity_magnitude") is not None
+                else PhysicalConsistencyModel.compute_defect_severity_magnitude(dmg_cls, vol, csi)
+            )
             pcu = float(r.get("traffic", {}).get("pcu", r.get("traffic", {}).get("traffic_pcu", 15000)))
             dist = float(r.get("infrastructure", {}).get("dist_hospital_km", 3.0))
             spd = float(r.get("accelerometer", {}).get("vehicle_speed_kmh", 40.0))
             school_dist = float(r.get("infrastructure", {}).get("school_proximity_km", r.get("infrastructure", {}).get("dist_school_km", 2.0)))
             road_cls = r.get("traffic", {}).get("road_class", r.get("location", {}).get("road_class", "ARTERIAL"))
             road_w = float(r.get("traffic", {}).get("road_class_weight", encode_road_class(road_cls)))
-            ref_matrix.append([vol, pcu, dist, spd, school_dist, road_w])
+            ref_matrix.append([sev_mag, pcu, dist, spd, school_dist, road_w])
 
         ref_all = self.topsis_engine.compute_all(np.array(ref_matrix), calibrated=True)
         ref_ranks = list(ref_all["topsis_ranks"])
@@ -182,6 +191,7 @@ class FusionExperimentRunner:
     ) -> Dict[str, Any]:
         """Evaluates a single experiment configuration over the dataset."""
         from services.data_generation.infrastructure_model import encode_road_class
+        from services.data_generation.consistency_model import PhysicalConsistencyModel
 
         n = len(dataset)
         confirmed_detections = 0
@@ -193,9 +203,17 @@ class FusionExperimentRunner:
         exp_matrix_rows = []
 
         for r in dataset:
+            vis = r.get("visual", {})
             dmg_cls = r.get("source", {}).get("annotation_class", "D40")
-            area = float(r.get("visual", {}).get("surface_area_sqm", 0.5))
-            raw_vol = float(r.get("visual", {}).get("calculated_volume_liters", 10.0))
+            area = float(vis.get("surface_area_sqm", 0.5))
+            bbox = vis.get("bbox", [100.0, 200.0, 300.0, 400.0])
+            raw_vol = vis.get("calculated_volume_liters")
+            raw_csi = vis.get("crack_severity_index")
+            raw_mag = float(
+                vis["defect_severity_magnitude"]
+                if vis.get("defect_severity_magnitude") is not None
+                else PhysicalConsistencyModel.compute_defect_severity_magnitude(dmg_cls, raw_vol, raw_csi)
+            )
             z_g = float(r.get("accelerometer", {}).get("z_accel_g", 1.0))
             is_rain = bool(r.get("environment", {}).get("rain_detected", False))
             lidar_d = float(r.get("lidar", {}).get("effective_depth_cm", 5.0))
@@ -207,10 +225,17 @@ class FusionExperimentRunner:
             road_cls = r.get("traffic", {}).get("road_class", r.get("location", {}).get("road_class", "ARTERIAL"))
             road_w = float(r.get("traffic", {}).get("road_class_weight", encode_road_class(road_cls)))
 
+            def _compute_mag(depth_val: float) -> float:
+                if dmg_cls == "D40":
+                    return round(0.5 * (area * 10000.0) * depth_val / 1000.0, 2)
+                csi_val = PhysicalConsistencyModel.compute_crack_severity_index(
+                    damage_class=dmg_cls, surface_area_sqm=area, depth_cm=depth_val, bbox=bbox
+                )
+                return PhysicalConsistencyModel.compute_defect_severity_magnitude(dmg_cls, None, csi_val)
+
             # Configuration-specific feature resolution
             if exp_code == "A":
-                # Vision Only: Volume is estimated from 2D bounding box (heuristic)
-                # No physical depth or acceleration confirmation possible
+                # Vision Only: Severity estimated from 2D bounding box area only
                 est_vol = round(area * 15.0, 2)
                 exp_pcu = 10000.0  # Default uncontextualized
                 exp_dist = 5.0     # Default uncontextualized
@@ -236,7 +261,7 @@ class FusionExperimentRunner:
             elif exp_code == "C":
                 # Vision + Optical LiDAR (fails/degrades in rain)
                 effective_d = 0.5 if is_rain else lidar_d  # Optical scatter in rain
-                est_vol = 0.5 * (area * 10000.0) * effective_d / 1000.0
+                est_vol = _compute_mag(effective_d)
                 exp_pcu = 10000.0
                 exp_dist = 5.0
                 exp_spd = 40.0
@@ -249,7 +274,7 @@ class FusionExperimentRunner:
             elif exp_code == "D":
                 # Vision + LiDAR + Sonar + Accelerometer (No GIS Context)
                 effective_d = sonar_d if is_rain else lidar_d
-                est_vol = 0.5 * (area * 10000.0) * effective_d / 1000.0
+                est_vol = _compute_mag(effective_d)
                 exp_pcu = 10000.0
                 exp_dist = 5.0
                 exp_spd = spd
@@ -262,7 +287,7 @@ class FusionExperimentRunner:
             else:  # "E"
                 # Full Multimodal System
                 effective_d = sonar_d if is_rain else lidar_d
-                est_vol = raw_vol
+                est_vol = raw_mag
                 exp_pcu = pcu
                 exp_dist = dist
                 exp_spd = spd

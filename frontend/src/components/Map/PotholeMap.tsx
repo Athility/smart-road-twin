@@ -267,16 +267,27 @@ export const PotholeMap: React.FC<PotholeMapProps> = ({
                           padding: '7px 9px',
                         }}
                       >
-                        <div style={{ fontSize: 9, color: '#4D5A72', marginBottom: 3 }}>Volume</div>
+                        <div style={{ fontSize: 9, color: '#4D5A72', marginBottom: 3 }}>
+                          {(pothole.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null
+                            ? 'Volume (L)'
+                            : 'Crack severity'}
+                        </div>
                         <div
                           style={{
                             fontFamily: 'monospace',
                             fontWeight: 700,
                             fontSize: 14,
-                            color: '#60A5FA',
+                            color:
+                              (pothole.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null
+                                ? '#60A5FA'
+                                : '#A78BFA',
                           }}
                         >
-                          {pt?.calculated_volume_liters} L
+                          {(pothole.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null
+                            ? `${pt.calculated_volume_liters.toFixed(1)} L`
+                            : pt?.crack_severity_index != null
+                            ? pt.crack_severity_index.toFixed(3)
+                            : '—'}
                         </div>
                       </div>
                     </div>

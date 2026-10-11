@@ -116,12 +116,12 @@ CRITERIA_SPECS = [
 EXTENDED_CRITERIA_SPECS = [
     {
         "index": 0,
-        "name": "calculated_volume_liters",
-        "label": "Defect Volume",
-        "unit": "Liters",
+        "name": "defect_severity_magnitude",
+        "label": "Defect Volume / Crack Severity Magnitude",
+        "unit": "L-equivalent",
         "is_benefit": True,
         "direction": "benefit",
-        "description": "Larger cavity volume produces greater structural failure and vertical chassis shock."
+        "description": "Unified defect severity magnitude: cavity volume (L) for D40 potholes, or crack_severity_index * 15.0 for D00/D10/D20 cracks."
     },
     {
         "index": 1,

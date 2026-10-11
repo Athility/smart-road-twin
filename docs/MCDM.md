@@ -12,12 +12,30 @@ The MCDM engine supports two compatible operating modes:
 
 | Index $j$ | Criterion Key | Symbol | Unit | Direction | Polarity Rationale |
 | :---: | :--- | :---: | :---: | :---: | :--- |
-| $0$ | `calculated_volume_liters` | $C_1$ | Liters | **Benefit** ($\uparrow$) | Larger void volume produces greater structural failure and vertical wheel-impact energy. |
+| $0$ | `defect_severity_magnitude` | $C_1$ | Liters-equivalent | **Benefit** ($\uparrow$) | Unified physical severity magnitude: cavity volume (L) for potholes (`D40`), or scaled `crack_severity_index` ($\times 15.0$) for linear/alligator cracks (`D00`, `D10`, `D20`). |
 | $1$ | `traffic_pcu` | $C_2$ | PCU/day | **Benefit** ($\uparrow$) | Higher daily Passenger Car Units expose more commuters to the defect per day. |
 | $2$ | `dist_hospital_km` | $C_3$ | km | **Cost** ($\downarrow$) | **Smaller** distance to an emergency trauma hospital increases repair urgency (critical ambulance corridor). |
 | $3$ | `speed_kmh` | $C_4$ | km/h | **Benefit** ($\uparrow$) | Higher operating speed increases dynamic impact shock ($z$-axis $g$-force). |
 | $4$ | `school_proximity_km` | $C_5$ | km | **Cost** ($\downarrow$) | **Smaller** distance to a K-12 school increases pedestrian, two-wheeler, and school-bus safety urgency. |
 | $5$ | `road_class` | $C_6$ | Ordinal $\{1,2,3,4\}$ | **Benefit** ($\uparrow$) | Higher functional roadway tier carries greater arterial network criticality. |
+
+### Unified Defect Severity Magnitude ($C_1$) & Class-Aware Scaling Justification
+
+In pavement distress engineering (ASTM D6433 / IRC:82), **volumetric cavity loss (`calculated_volume_liters`)** is physically meaningful **only** for discrete bowl-shaped depressions (`D40` Pothole):
+
+$$V_{\text{pothole}} = A_{\text{m}^2} \times d_{\text{cm}} \times 0.8 \times 10 \quad (\text{Liters}, \text{ only for } \text{D40})$$
+
+For surface cracks (`D00` Longitudinal, `D10` Transverse, `D20` Alligator), multiplying the full bounding-box footprint area by vertical relief depth artificially fabricates 50–80 L "volumes" for shallow surface fissures, causing wide alligator cracks to falsely outrank deep structural potholes. Therefore:
+1. **For cracks (`D00`, `D10`, `D20`)**, `calculated_volume_liters = null` (`None`) and a bounded **`crack_severity_index` $\in [0, 1]$** is computed instead:
+   - **Linear cracks (`D00`, `D10`)**: Bounding-box major-axis length $L_{\text{m}} = \sqrt{A_{\text{m}^2} \cdot r_{\text{aspect}}}$ weighted by depth $d_{\text{cm}}$, normalized against $L_{\max}\cdot d_{\max} = 8.0\,\text{m}\cdot\text{cm}$:
+     $$\text{CSI}_{\text{D00/D10}} = \text{clip}\left(\frac{L_{\text{m}} \cdot d_{\text{cm}}}{8.0},\; 0.0,\; 1.0\right)$$
+   - **Alligator / fatigue cracks (`D20`)**: Affected area $A_{\text{m}^2}$ with linear depth weighting $(0.5 + 0.5\,\min(d_{\text{cm}}/5.0, 1.0))$, normalized against $A_{\max} = 4.0\,\text{m}^2$:
+     $$\text{CSI}_{\text{D20}} = \text{clip}\left(\frac{A_{\text{m}^2} \cdot \left(0.5 + 0.5\min(d_{\text{cm}}/5.0, 1.0)\right)}{4.0},\; 0.0,\; 1.0\right)$$
+2. **Unified MCDM Criterion (`defect_severity_magnitude`)**:
+   $$\text{defect\_severity\_magnitude} = \begin{cases} V_{\text{pothole}} \text{ (Liters)} & \text{if } \text{class} = \text{D40} \\ 15.0 \times \text{crack\_severity\_index} & \text{if } \text{class} \in \{\text{D00}, \text{D10}, \text{D20}\} \end{cases}$$
+   **Scaling Justification (`CRACK_SEVERITY_TO_MAGNITUDE_SCALE = 15.0`)**:
+   - Under `CRACK_SEVERITY_TO_MAGNITUDE_SCALE = 15.0`, a maximum-severity fatigue crack ($\text{CSI} = 1.0$) maps to $15.0$ L-equivalent—comparable to a moderate pothole ($15\text{ L}$, e.g. $0.25\,\text{m}^2 \times 7.5\,\text{cm}$ depth), while typical linear cracks ($\text{CSI} \approx 0.15\text{–}0.35$) map to $2.25\text{–}5.25$ L-equivalent and severe alligator cracks ($\text{CSI} \approx 0.65\text{–}0.85$) map to $9.75\text{–}12.75$ L-equivalent.
+   - This prevents L2 column normalization in TOPSIS from collapsing crack severity to near-zero (which would happen if unscaled $[0, 1]$ values were mixed directly with $20\text{–}145\text{ L}$ pothole volumes), while ensuring that a large structural pothole ($\ge 20\text{ L}$) consistently outranks a surface crack given equal traffic and spatial context.
 
 ### Road Class Ordinal Encoding ($C_6$)
 

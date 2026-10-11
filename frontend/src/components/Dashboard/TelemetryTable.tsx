@@ -56,8 +56,18 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
           va = typeof a.topsis_score === 'number' && !isNaN(a.topsis_score) ? a.topsis_score : 0;
           vb = typeof b.topsis_score === 'number' && !isNaN(b.topsis_score) ? b.topsis_score : 0;
         } else if (sortField === 'volume') {
-          va = a.processed_telemetry?.calculated_volume_liters ?? 0;
-          vb = b.processed_telemetry?.calculated_volume_liters ?? 0;
+          va =
+            a.processed_telemetry?.defect_severity_magnitude ??
+            a.processed_telemetry?.calculated_volume_liters ??
+            (a.processed_telemetry?.crack_severity_index != null
+              ? a.processed_telemetry.crack_severity_index * 15
+              : 0);
+          vb =
+            b.processed_telemetry?.defect_severity_magnitude ??
+            b.processed_telemetry?.calculated_volume_liters ??
+            (b.processed_telemetry?.crack_severity_index != null
+              ? b.processed_telemetry.crack_severity_index * 15
+              : 0);
         } else if (sortField === 'depth') {
           va = a.processed_telemetry?.estimated_depth_cm ?? 0;
           vb = b.processed_telemetry?.estimated_depth_cm ?? 0;
@@ -225,10 +235,10 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort('volume'); } }}
                 tabIndex={0}
                 role="button"
-                aria-label="Sort by volume"
+                aria-label="Sort by volume or crack severity"
               >
                 <span className="flex items-center gap-1">
-                  Vol (L) <SortIcon field="volume" active={sortField} asc={sortAsc} />
+                  Volume (L) / Severity <SortIcon field="volume" active={sortField} asc={sortAsc} />
                 </span>
               </th>
               <th
@@ -269,6 +279,7 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                 const pt = record.processed_telemetry;
                 const isSonar = pt?.detection_modality === 'sonar_submerged_acoustic';
                 const hasImpact = pt?.dynamic_impact_confirmed;
+                const isPothole = (record.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null;
 
                 return (
                   <tr
@@ -361,19 +372,31 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                       </span>
                     </td>
 
-                    {/* Volume */}
+                    {/* Volume (L) for potholes, Crack severity for others */}
                     <td
                       style={{
                         padding: '8px 12px',
                         verticalAlign: 'middle',
                         fontFamily: 'ui-monospace, SFMono-Regular, monospace',
                         fontSize: '12px',
-                        color: '#60A5FA',
+                        color: isPothole ? '#60A5FA' : '#A78BFA',
                         fontWeight: 600,
                         textAlign: 'right',
                       }}
                     >
-                      {pt?.calculated_volume_liters?.toFixed(1) ?? '—'}
+                      {isPothole && pt?.calculated_volume_liters != null ? (
+                        <div>
+                          <div>{pt.calculated_volume_liters.toFixed(1)} L</div>
+                          <div style={{ fontSize: '9px', color: '#4D5A72', fontWeight: 500 }}>Volume (L)</div>
+                        </div>
+                      ) : pt?.crack_severity_index != null ? (
+                        <div>
+                          <div>{pt.crack_severity_index.toFixed(2)}</div>
+                          <div style={{ fontSize: '9px', color: '#4D5A72', fontWeight: 500 }}>Crack severity</div>
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </td>
 
                     {/* Depth */}

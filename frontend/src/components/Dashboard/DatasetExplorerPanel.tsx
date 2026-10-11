@@ -688,6 +688,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
                   <th style={{ padding: '8px 12px', textAlign: 'right' }}>LiDAR (cm)</th>
                   <th style={{ padding: '8px 12px', textAlign: 'right' }}>Sonar (cm)</th>
                   <th style={{ padding: '8px 12px', textAlign: 'left' }}>Active Modality</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>Volume (L) / Crack severity</th>
                   <th style={{ padding: '8px 12px', textAlign: 'right' }}>Z-Accel (g)</th>
                   <th style={{ padding: '8px 12px', textAlign: 'right' }}>Traffic PCU</th>
                   <th style={{ padding: '8px 12px', textAlign: 'right' }}>Hosp Dist</th>
@@ -699,6 +700,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
                 {stats.records.map((r, i) => {
                   const isSel = r.id === selectedRecordId;
                   const isSonarMod = (r.processed_telemetry?.detection_modality || '').includes('sonar');
+                  const isPothole = (r.damage_class || 'D40') === 'D40' && r.processed_telemetry?.calculated_volume_liters != null;
                   const pColor = r.priority_level === 'Critical' ? '#EF4444' :
                                  r.priority_level === 'High' ? '#F97316' :
                                  r.priority_level === 'Medium' ? '#F59E0B' : '#22C55E';
@@ -765,6 +767,21 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
                         >
                           {isSonarMod ? '⦿ Sonar' : '◉ LiDAR'}
                         </span>
+                      </td>
+                      <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace' }}>
+                        {isPothole && r.processed_telemetry?.calculated_volume_liters != null ? (
+                          <span style={{ color: '#60A5FA', fontWeight: 700 }} title="Volume (L)">
+                            {r.processed_telemetry.calculated_volume_liters.toFixed(1)} L{' '}
+                            <span style={{ fontSize: '9px', color: '#64748B', fontWeight: 500 }}>Volume (L)</span>
+                          </span>
+                        ) : r.processed_telemetry?.crack_severity_index != null ? (
+                          <span style={{ color: '#A78BFA', fontWeight: 700 }} title="Crack severity">
+                            {r.processed_telemetry.crack_severity_index.toFixed(3)}{' '}
+                            <span style={{ fontSize: '9px', color: '#64748B', fontWeight: 500 }}>Crack severity</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: '#475569' }}>—</span>
+                        )}
                       </td>
                       <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace', color: r.z_accel_g > 1.5 ? '#EF4444' : '#E2E8F0', fontWeight: r.z_accel_g > 1.5 ? 700 : 400 }}>
                         {r.z_accel_g.toFixed(2)}g

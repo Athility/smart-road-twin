@@ -93,9 +93,20 @@ def get_active_detector_label() -> str:
 
 ACTIVE_DETECTOR = get_active_detector_label()
 
+def _get_item_severity_magnitude(item: Dict[str, Any]) -> float:
+    pt = item.get("processed_telemetry", {})
+    mag = pt.get("defect_severity_magnitude")
+    if mag is not None:
+        return float(mag)
+    vol = pt.get("calculated_volume_liters")
+    if vol is not None:
+        return float(vol)
+    return 0.0
+
+
 def _build_record_6criteria_row(item: Dict[str, Any]) -> List[float]:
     return [
-        float(item["processed_telemetry"]["calculated_volume_liters"]),
+        _get_item_severity_magnitude(item),
         float(item["traffic_pcu"]),
         float(item["dist_hospital_km"]),
         float(item["speed_kmh"]),
@@ -142,6 +153,8 @@ def recompute_topsis_for_all():
 
 def process_and_store_telemetry(payload_dict: dict) -> dict:
     global _pothole_counter
+    dmg_cls = payload_dict.get("damage_class") or "D40"
+    bbox = payload_dict.get("bbox", [180.0, 260.0, 420.0, 480.0])
     switcher = EnvironmentalSensorSwitching(baseline_chassis_height_cm=30.0)
     depth_res = switcher.evaluate_environment_and_measure(
         rain_detected=payload_dict["rain_detected"],
@@ -149,7 +162,9 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
         lidar_depth_cm=payload_dict["lidar_depth_cm"],
         sonar_depth_cm=payload_dict["sonar_depth_cm"],
         z_accel_g=payload_dict["z_accel_g"],
-        surface_area_sqm=payload_dict["surface_area_sqm"]
+        surface_area_sqm=payload_dict["surface_area_sqm"],
+        damage_class=dmg_cls,
+        bbox=bbox
     )
 
     lat = float(payload_dict["latitude"])
@@ -181,12 +196,12 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
             "nearest_school_name": payload_dict.get("nearest_school_name", school_info["name"]),
             "speed_kmh": float(payload_dict["speed_kmh"]),
             "data_source": payload_dict.get("data_source", "MULTIMODAL"),
-            "damage_class": payload_dict.get("damage_class", "D40"),
+            "damage_class": dmg_cls,
             "damage_label": payload_dict.get("damage_label", "Pothole"),
             "confidence": float(payload_dict.get("confidence", 0.94)),
             "image_id": img_id,
             "image_url": img_url,
-            "bbox": payload_dict.get("bbox", [180.0, 260.0, 420.0, 480.0]),
+            "bbox": bbox,
             "road_name": payload_dict.get("road_name", "Western Express Highway Corridor"),
             "road_class": road_cls,
             "road_class_weight": encode_road_class(road_cls),
@@ -220,6 +235,8 @@ def _load_srmd_records_into_store() -> bool:
             telemetry_store.clear()
             for r in srmd_items:
                 img_file = r["visual"].get("image_filename", f"{r['source']['image_id']}.jpg")
+                dmg_cls = r["source"].get("annotation_class", "D40")
+                bbox = r["visual"].get("bbox", [])
                 switcher = EnvironmentalSensorSwitching(baseline_chassis_height_cm=30.0)
                 depth_eval = switcher.evaluate_environment_and_measure(
                     rain_detected=r["environment"]["rain_detected"],
@@ -227,12 +244,19 @@ def _load_srmd_records_into_store() -> bool:
                     lidar_depth_cm=r["lidar"]["depth_cm"],
                     sonar_depth_cm=r["sonar"]["depth_cm"],
                     z_accel_g=r["accelerometer"]["z_accel_g"],
-                    surface_area_sqm=r["visual"]["surface_area_sqm"]
+                    surface_area_sqm=r["visual"]["surface_area_sqm"],
+                    damage_class=dmg_cls,
+                    bbox=bbox
                 )
                 depth_eval["estimated_depth_cm"] = r["environment"]["selected_depth_cm"]
                 depth_eval["detection_modality"] = r["environment"]["preferred_modality"]
                 if depth_eval["detection_modality"] != "sonar_submerged_acoustic":
-                    depth_eval["calculated_volume_liters"] = r["visual"]["calculated_volume_liters"]
+                    depth_eval["calculated_volume_liters"] = r["visual"].get("calculated_volume_liters")
+                    depth_eval["crack_severity_index"] = r["visual"].get("crack_severity_index", depth_eval.get("crack_severity_index"))
+                    depth_eval["defect_severity_magnitude"] = r["visual"].get(
+                        "defect_severity_magnitude",
+                        depth_eval.get("defect_severity_magnitude", 0.0)
+                    )
                 depth_eval["dynamic_impact_confirmed"] = r["accelerometer"]["dynamic_impact_triggered"]
 
                 lat = float(r["location"]["latitude"])
@@ -265,12 +289,12 @@ def _load_srmd_records_into_store() -> bool:
                     "nearest_school_name": school_name,
                     "speed_kmh": float(r.get("vehicle", {}).get("speed_kmh", 40.0)),
                     "data_source": "MULTIMODAL",
-                    "damage_class": r["source"].get("annotation_class", "D40"),
+                    "damage_class": dmg_cls,
                     "damage_label": r["visual"].get("damage_label", "Pothole"),
                     "confidence": float(r["visual"].get("confidence", 0.94)),
                     "image_id": r["source"].get("image_id", "India_000045"),
                     "image_url": f"/api/v1/images/{img_file}",
-                    "bbox": r["visual"].get("bbox", []),
+                    "bbox": bbox,
                     "road_name": r["location"].get("road_name", "Western Express Highway"),
                     "road_class": road_cls,
                     "road_class_weight": encode_road_class(road_cls),
@@ -392,8 +416,13 @@ if not _load_srmd_records_into_store():
 
 def calculate_summary():
     with _store_lock:
-        total_volume = round(sum(item["processed_telemetry"]["calculated_volume_liters"] for item in telemetry_store), 2)
-        avg_volume = round(total_volume / len(telemetry_store), 2) if telemetry_store else 0.0
+        pothole_vols = [
+            float(item["processed_telemetry"]["calculated_volume_liters"])
+            for item in telemetry_store
+            if item.get("processed_telemetry", {}).get("calculated_volume_liters") is not None
+        ]
+        total_volume = round(sum(pothole_vols), 2)
+        avg_volume = round(total_volume / len(pothole_vols), 2) if pothole_vols else 0.0
         
         priority_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
         rain_count = 0
@@ -645,7 +674,7 @@ def _execute_prioritization_query(
     if w.shape[0] == 4:
         matrix = np.array([
             [
-                float(it["processed_telemetry"]["calculated_volume_liters"]),
+                _get_item_severity_magnitude(it),
                 float(it["traffic_pcu"]),
                 float(it["dist_hospital_km"]),
                 float(it["speed_kmh"])
@@ -667,6 +696,8 @@ def _execute_prioritization_query(
         v_rank = int(all_res["vikor_ranks"][idx])
         primary_rank = v_rank if method_norm == "vikor" else t_rank
         primary_score = round(1.0 - v_q, 4) if method_norm == "vikor" else t_score
+        raw_vol = it["processed_telemetry"].get("calculated_volume_liters")
+        raw_csi = it["processed_telemetry"].get("crack_severity_index")
 
         row_entry: Dict[str, Any] = {
             "id": it["id"],
@@ -677,7 +708,9 @@ def _execute_prioritization_query(
             "road_name": it.get("road_name", ""),
             "road_class": it.get("road_class", "ARTERIAL"),
             "road_class_weight": encode_road_class(it.get("road_class", "ARTERIAL")),
-            "calculated_volume_liters": float(it["processed_telemetry"]["calculated_volume_liters"]),
+            "calculated_volume_liters": float(raw_vol) if raw_vol is not None else None,
+            "crack_severity_index": float(raw_csi) if raw_csi is not None else None,
+            "defect_severity_magnitude": _get_item_severity_magnitude(it),
             "traffic_pcu": int(it["traffic_pcu"]),
             "dist_hospital_km": float(it["dist_hospital_km"]),
             "speed_kmh": float(it["speed_kmh"]),

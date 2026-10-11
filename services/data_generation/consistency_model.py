@@ -33,6 +33,10 @@ from typing import Dict, List, Any, Optional, Tuple
 # Baseline chassis clearance in centimeters
 DEFAULT_CHASSIS_BASELINE_CM = 30.0
 
+# Scaling factor mapping bounded crack_severity_index ∈ [0, 1] to equivalent
+# structural repair magnitude (L-equivalent) for unified MCDM comparison with potholes
+CRACK_SEVERITY_TO_MAGNITUDE_SCALE = 15.0
+
 # Canonical class severity prior distributions [min_severity, max_severity]
 CLASS_SEVERITY_PRIORS = {
     "D00": {"min_s": 0.05, "max_s": 0.28, "name": "longitudinal_crack", "label": "Longitudinal Crack"},
@@ -40,6 +44,21 @@ CLASS_SEVERITY_PRIORS = {
     "D20": {"min_s": 0.28, "max_s": 0.62, "name": "alligator_crack", "label": "Alligator Crack"},
     "D40": {"min_s": 0.52, "max_s": 0.98, "name": "pothole", "label": "Pothole"}
 }
+
+_CLASS_NAME_TO_CODE = {
+    "D00": "D00", "LONGITUDINAL_CRACK": "D00",
+    "D10": "D10", "TRANSVERSE_CRACK": "D10",
+    "D20": "D20", "ALLIGATOR_CRACK": "D20",
+    "D40": "D40", "POTHOLE": "D40",
+}
+
+
+def normalize_damage_class_code(damage_class: Optional[str]) -> str:
+    """Normalizes a damage class code or slug into canonical RDD2022 code (D00, D10, D20, D40)."""
+    if not damage_class:
+        return "D40"
+    key = str(damage_class).strip().upper()
+    return _CLASS_NAME_TO_CODE.get(key, "D40")
 
 
 class PhysicalConsistencyModel:
@@ -88,15 +107,16 @@ class PhysicalConsistencyModel:
         
         The latent variable couples visual bounding box size and damage taxonomy.
         """
-        prior = CLASS_SEVERITY_PRIORS.get(damage_class, CLASS_SEVERITY_PRIORS["D40"])
+        cls_code = normalize_damage_class_code(damage_class)
+        prior = CLASS_SEVERITY_PRIORS.get(cls_code, CLASS_SEVERITY_PRIORS["D40"])
         s_min = prior["min_s"]
         s_max = prior["max_s"]
 
         # Scale severity monotonically with observed geometric area
-        if damage_class == "D40":
+        if cls_code == "D40":
             # Pothole area normalization: 0.1 m² (small) to 2.5 m² (huge)
             area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.1) / 2.4))
-        elif damage_class == "D20":
+        elif cls_code == "D20":
             # Alligator area normalization: 0.2 m² to 4.0 m²
             area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.2) / 3.8))
         else:
@@ -116,16 +136,20 @@ class PhysicalConsistencyModel:
         defect_severity: float,
         damage_class: str,
         surface_area_sqm: float
-    ) -> Tuple[float, float, str]:
+    ) -> Tuple[float, Optional[float], str]:
         """
         Derives physical defect depth (cm) and cavity volume (liters).
         
-        Strict physical invariant:
-        volume > 0 ⟺ (depth > 0 AND surface_area_sqm > 0)
+        Class-aware physical rules:
+        - Cavity volume (liters) is computed ONLY for D40 (pothole):
+          volume > 0 ⟺ (depth > 0 AND surface_area_sqm > 0).
+        - For crack classes (D00, D10, D20), calculated_volume_liters is None
+          and crack_severity_index ∈ [0, 1] is computed instead.
         """
+        cls_code = normalize_damage_class_code(damage_class)
         s = defect_severity
 
-        if damage_class == "D40":
+        if cls_code == "D40":
             # Potholes: 4.8 cm to 18.5 cm
             # Moderate potholes (< 1.0 m² area) produce moderate void (4.8 - 6.2 cm, borderline shock)
             # Large severe potholes (>= 1.0 m² area) produce deep void (10.0 - 16.0 cm, confirmed impact)
@@ -133,10 +157,10 @@ class PhysicalConsistencyModel:
                 depth_cm = round(4.8 + 1.8 * (s ** 1.1), 2)
             else:
                 depth_cm = round(9.0 + 8.5 * (s ** 1.3), 2)
-        elif damage_class == "D20":
+        elif cls_code == "D20":
             # Alligator fatigue: 2.0 cm to 5.5 cm
             depth_cm = round(1.8 + 4.2 * s, 2)
-        elif damage_class == "D10":
+        elif cls_code == "D10":
             # Transverse crack: 0.6 cm to 2.2 cm
             depth_cm = round(0.5 + 2.0 * (s ** 1.2), 2)
         else:
@@ -153,17 +177,74 @@ class PhysicalConsistencyModel:
         else:
             tier = "shallow"
 
-        # Volume calculation (parabolic / conical cavity approximation):
-        # V = shape_factor * area_cm² * depth_cm / 1000 cm³/L
-        # With area in m²: area_cm² = surface_area_sqm * 10,000
-        # shape_factor = 0.50 (consistent with depth_estimator.py EnvironmentalSensorSwitching)
-        shape_factor = 0.50
-        if surface_area_sqm > 0 and depth_cm > 0:
-            volume_liters = round(shape_factor * (surface_area_sqm * 10000.0) * depth_cm / 1000.0, 2)
+        if cls_code == "D40":
+            # Volume calculation (parabolic / conical cavity approximation) ONLY for D40 potholes:
+            # V = shape_factor * area_cm² * depth_cm / 1000 cm³/L
+            shape_factor = 0.50
+            if surface_area_sqm > 0 and depth_cm > 0:
+                volume_liters: Optional[float] = round(
+                    shape_factor * (surface_area_sqm * 10000.0) * depth_cm / 1000.0, 2
+                )
+            else:
+                volume_liters = 0.0
         else:
-            volume_liters = 0.0
+            volume_liters = None
 
         return depth_cm, volume_liters, tier
+
+    @staticmethod
+    def compute_crack_severity_index(
+        damage_class: str,
+        surface_area_sqm: float,
+        depth_cm: float,
+        bbox: Optional[List[float]] = None
+    ) -> Optional[float]:
+        """
+        Computes the bounded [0.0, 1.0] `crack_severity_index` for crack classes (D00, D10, D20),
+        returning None for D40 potholes:
+        - D00 / D10 (Linear Cracks): bbox_length_m * depth_cm normalized by 6.0 m·cm and clamped to [0, 1].
+        - D20 (Alligator Fatigue Crack): affected surface_area_sqm * (depth_cm / 5.0) normalized by 2.5 m² and clamped to [0, 1].
+        """
+        cls_code = normalize_damage_class_code(damage_class)
+        if cls_code == "D40":
+            return None
+        valid_area = max(0.0, float(surface_area_sqm))
+        valid_depth = max(0.0, float(depth_cm))
+        if valid_area <= 0.0 or valid_depth <= 0.0:
+            return 0.0
+
+        if cls_code == "D20":
+            depth_weight = min(1.5, max(0.1, valid_depth / 5.0))
+            raw_fatigue = valid_area * depth_weight
+            return round(min(1.0, max(0.0, raw_fatigue / 2.5)), 4)
+
+        # D00 / D10: bbox length (m) x depth (cm)
+        if bbox is not None and len(bbox) == 4:
+            bw = max(1.0, float(bbox[2]) - float(bbox[0]))
+            bh = max(1.0, float(bbox[3]) - float(bbox[1]))
+            aspect = max(1.0, min(12.0, max(bw, bh) / min(bw, bh)))
+        else:
+            aspect = 6.0
+        bbox_length_m = math.sqrt(valid_area * aspect)
+        raw_linear = bbox_length_m * valid_depth
+        return round(min(1.0, max(0.0, raw_linear / 6.0)), 4)
+
+    @staticmethod
+    def compute_defect_severity_magnitude(
+        damage_class: str,
+        volume_liters: Optional[float],
+        crack_severity_index: Optional[float]
+    ) -> float:
+        """
+        Computes the unified `defect_severity_magnitude` column for MCDM (TOPSIS/VIKOR Criterion 0):
+        - For D40 (pothole): calculated_volume_liters (L).
+        - For D00/D10/D20 (cracks): crack_severity_index * CRACK_SEVERITY_TO_MAGNITUDE_SCALE (15.0 L-equivalent).
+        """
+        cls_code = normalize_damage_class_code(damage_class)
+        if cls_code == "D40":
+            return round(max(0.0, float(volume_liters if volume_liters is not None else 0.0)), 2)
+        csi = max(0.0, float(crack_severity_index if crack_severity_index is not None else 0.0))
+        return round(csi * CRACK_SEVERITY_TO_MAGNITUDE_SCALE, 2)
 
     def derive_accelerometer_impact(
         self,
@@ -338,20 +419,32 @@ class PhysicalConsistencyModel:
         rain_detected: bool = False,
         luminance_lux: float = 65.0,
         vehicle_speed_kmh: float = 40.0,
-        road_class: Optional[str] = None
+        road_class: Optional[str] = None,
+        bbox: Optional[List[float]] = None
     ) -> Dict[str, Any]:
         """
         Derives an integrated package of physically consistent telemetry:
-        latent severity, depth, volume, impact acceleration, sensors, and context.
+        latent severity, depth, volume/crack_severity_index, impact acceleration, sensors, and context.
         """
         # 1. Latent Defect Severity
         defect_severity = self.derive_latent_severity(damage_class, surface_area_sqm)
 
-        # 2. Physics-grounded Depth and Volume
+        # 2. Physics-grounded Depth and Class-Aware Volume / Crack Severity Index
         defect_depth_cm, volume_liters, severity_tier = self.derive_depth_and_volume(
             defect_severity=defect_severity,
             damage_class=damage_class,
             surface_area_sqm=surface_area_sqm
+        )
+        crack_severity_index = self.compute_crack_severity_index(
+            damage_class=damage_class,
+            surface_area_sqm=surface_area_sqm,
+            depth_cm=defect_depth_cm,
+            bbox=bbox
+        )
+        defect_severity_magnitude = self.compute_defect_severity_magnitude(
+            damage_class=damage_class,
+            volume_liters=volume_liters,
+            crack_severity_index=crack_severity_index
         )
 
         # 3. Dynamic Impact Acceleration
@@ -386,6 +479,8 @@ class PhysicalConsistencyModel:
             "defect_severity": defect_severity,
             "defect_depth_cm": defect_depth_cm,
             "volume_liters": volume_liters,
+            "crack_severity_index": crack_severity_index,
+            "defect_severity_magnitude": defect_severity_magnitude,
             "severity_tier": severity_tier,
             "accelerometer": impact_data,
             "sensors": sensors,
@@ -403,3 +498,4 @@ class PhysicalConsistencyModel:
                 "road_segment_id": f"SEG-{rc[:3]}-{self.rng.randint(10, 99)}"
             }
         }
+

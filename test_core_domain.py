@@ -290,17 +290,21 @@ class TestAPIAndStore(unittest.TestCase):
             raw_srmd = srmd_by_id[rec["id"]]
             sonar_depth = max(0.0, float(rec["sonar_depth_cm"]) - 30.0)
             area_sqm = float(rec["surface_area_sqm"])
-            expected_sonar_vol = round((0.5 * (area_sqm * 10000.0) * sonar_depth) / 1000.0, 2)
-            self.assertAlmostEqual(
-                rec["processed_telemetry"]["calculated_volume_liters"],
-                expected_sonar_vol,
-                places=2
-            )
-            if raw_srmd["sonar"]["depth_cm"] != raw_srmd["lidar"]["depth_cm"]:
-                self.assertNotEqual(
+            if rec.get("damage_class") == "D40":
+                expected_sonar_vol = round((0.5 * (area_sqm * 10000.0) * sonar_depth) / 1000.0, 2)
+                self.assertAlmostEqual(
                     rec["processed_telemetry"]["calculated_volume_liters"],
-                    raw_srmd["visual"]["calculated_volume_liters"]
+                    expected_sonar_vol,
+                    places=2
                 )
+                if raw_srmd["sonar"]["depth_cm"] != raw_srmd["lidar"]["depth_cm"]:
+                    self.assertNotEqual(
+                        rec["processed_telemetry"]["calculated_volume_liters"],
+                        raw_srmd["visual"]["calculated_volume_liters"]
+                    )
+            else:
+                self.assertIsNone(rec["processed_telemetry"]["calculated_volume_liters"])
+                self.assertIsNotNone(rec["processed_telemetry"]["crack_severity_index"])
 
 
 
@@ -1699,10 +1703,13 @@ class TestPhase23VerificationComprehensive(unittest.TestCase):
             bbox=[100, 100, 500, 500], image_dims={"width": 720, "height": 720, "depth": 3},
             annotation_idx=0, waypoint_idx=1
         )
-        # Latent severity drives depth, area, volume, and vertical shock
+        # Latent severity drives depth, area, volume/severity magnitude, and vertical shock
         self.assertGreater(rec_d40["visual"]["defect_severity"], rec_d00["visual"]["defect_severity"])
         self.assertGreater(rec_d40["lidar"]["depth_cm"], rec_d00["lidar"]["depth_cm"])
-        self.assertGreater(rec_d40["visual"]["calculated_volume_liters"], rec_d00["visual"]["calculated_volume_liters"])
+        self.assertIsNone(rec_d00["visual"]["calculated_volume_liters"])
+        self.assertIsNotNone(rec_d00["visual"]["crack_severity_index"])
+        self.assertIsNotNone(rec_d40["visual"]["calculated_volume_liters"])
+        self.assertGreater(rec_d40["visual"]["defect_severity_magnitude"], rec_d00["visual"]["defect_severity_magnitude"])
         self.assertGreater(rec_d40["accelerometer"]["z_accel_g"], rec_d00["accelerometer"]["z_accel_g"])
 
     def test_05_sensor_switching(self):
@@ -2068,7 +2075,7 @@ class TestBackendCLAHEMCDMAndPrioritization(unittest.TestCase):
         records = json.loads(srmd_file.read_text(encoding="utf-8"))
         matrix = np.array([
             [
-                r["visual"]["calculated_volume_liters"],
+                r["visual"]["defect_severity_magnitude"],
                 r["traffic"]["pcu"],
                 r["infrastructure"]["dist_hospital_km"],
                 r["accelerometer"]["vehicle_speed_kmh"],
@@ -2084,10 +2091,10 @@ class TestBackendCLAHEMCDMAndPrioritization(unittest.TestCase):
         self.assertEqual(sorted(res["vikor_ranks"]), list(range(1, len(records) + 1)))
         self.assertTrue(-1.0 <= res["spearman_correlation"] <= 1.0)
         self.assertGreater(res["spearman_correlation"], 0.6)
-        # TOPSIS ranks SRMD-IND-000045-00 (index 0, 144.4L highway pothole) as Rank 1;
-        # VIKOR ranks SRMD-IND-000102-00 (index 1, lowest individual regret R_i) as Rank 1.
+        # TOPSIS ranks SRMD-IND-000045-00 (index 0, highway pothole) as Rank 1;
+        # VIKOR ranks one of the two highway potholes (index 0 or 4) as Rank 1.
         self.assertEqual(res["topsis_ranks"][0], 1)
-        self.assertEqual(res["vikor_ranks"][1], 1)
+        self.assertIn(1, (res["vikor_ranks"][0], res["vikor_ranks"][4]))
 
     def test_school_registry_and_road_class_criteria(self):
         from services.data_generation.infrastructure_model import (

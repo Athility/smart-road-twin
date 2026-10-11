@@ -8,7 +8,9 @@ export interface ProcessedTelemetry {
   detection_modality: 'optical_lidar' | 'sonar_submerged_acoustic' | string;
   is_submerged: boolean;
   estimated_depth_cm: number;
-  calculated_volume_liters: number;
+  calculated_volume_liters: number | null;
+  crack_severity_index?: number | null;
+  defect_severity_magnitude?: number;
   dynamic_impact_confirmed: boolean;
 }
 

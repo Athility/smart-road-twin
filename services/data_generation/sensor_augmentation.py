@@ -108,11 +108,22 @@ class SensorAugmentationEngine:
         # 1. Latent Defect Severity
         defect_severity = self.consistency.derive_latent_severity(damage_class, surface_area_sqm)
 
-        # 2. Physics-grounded Depth and Volume
+        # 2. Physics-grounded Depth and Class-Aware Volume / Crack Severity Index
         defect_depth_cm, volume_liters, severity_tier = self.consistency.derive_depth_and_volume(
             defect_severity=defect_severity,
             damage_class=damage_class,
             surface_area_sqm=surface_area_sqm
+        )
+        crack_severity_index = self.consistency.compute_crack_severity_index(
+            damage_class=damage_class,
+            surface_area_sqm=surface_area_sqm,
+            depth_cm=defect_depth_cm,
+            bbox=bbox
+        )
+        defect_severity_magnitude = self.consistency.compute_defect_severity_magnitude(
+            damage_class=damage_class,
+            volume_liters=volume_liters,
+            crack_severity_index=crack_severity_index
         )
 
         # 3. Environmental conditions
@@ -224,7 +235,9 @@ class SensorAugmentationEngine:
                 "image_url": f"/static/rdd2022/images/{filename}",
                 "surface_area_sqm": surface_area_sqm,
                 "defect_severity": defect_severity,
-                "calculated_volume_liters": volume_liters
+                "calculated_volume_liters": volume_liters,
+                "crack_severity_index": crack_severity_index,
+                "defect_severity_magnitude": defect_severity_magnitude
             },
             "location": {
                 "latitude": lat,

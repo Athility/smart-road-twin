@@ -181,11 +181,22 @@ class SRMDRecordBuilder:
         # 2. Derive latent defect_severity ∈ [0.0, 1.0]
         defect_severity = self.consistency.derive_latent_severity(damage_class, surface_area_sqm)
 
-        # 3. Derive physical depth & cavity volume strictly coupled to severity & area
+        # 3. Derive physical depth & class-aware volume / crack severity index
         defect_depth_cm, volume_liters, severity_tier = self.consistency.derive_depth_and_volume(
             defect_severity=defect_severity,
             damage_class=damage_class,
             surface_area_sqm=surface_area_sqm
+        )
+        crack_severity_index = self.consistency.compute_crack_severity_index(
+            damage_class=damage_class,
+            surface_area_sqm=surface_area_sqm,
+            depth_cm=defect_depth_cm,
+            bbox=bbox
+        )
+        defect_severity_magnitude = self.consistency.compute_defect_severity_magnitude(
+            damage_class=damage_class,
+            volume_liters=volume_liters,
+            crack_severity_index=crack_severity_index
         )
 
         # 4. Urban Location & Context via LocationModel
@@ -284,7 +295,9 @@ class SRMDRecordBuilder:
                 "image_url": f"/static/rdd2022/images/{filename}",
                 "surface_area_sqm": surface_area_sqm,
                 "defect_severity": defect_severity,
-                "calculated_volume_liters": volume_liters
+                "calculated_volume_liters": volume_liters,
+                "crack_severity_index": crack_severity_index,
+                "defect_severity_magnitude": defect_severity_magnitude
             },
             "location": {
                 "latitude": lat,

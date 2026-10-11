@@ -46,6 +46,8 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       is_submerged: true,
       estimated_depth_cm: 15.95,
       calculated_volume_liters: 144.51,
+      crack_severity_index: null,
+      defect_severity_magnitude: 144.51,
       dynamic_impact_confirmed: true
     },
     topsis_score: 0.6745,
@@ -80,7 +82,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       detection_modality: 'sonar_submerged_acoustic',
       is_submerged: false,
       estimated_depth_cm: 4.27,
-      calculated_volume_liters: 76.58,
+      calculated_volume_liters: null,
+      crack_severity_index: 0.8318,
+      defect_severity_magnitude: 12.48,
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.5109,
@@ -115,7 +119,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       detection_modality: 'sonar_submerged_acoustic',
       is_submerged: true,
       estimated_depth_cm: 0.92,
-      calculated_volume_liters: 4.22,
+      calculated_volume_liters: null,
+      crack_severity_index: 0.3193,
+      defect_severity_magnitude: 4.79,
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.2667,
@@ -150,7 +156,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       detection_modality: 'optical_lidar',
       is_submerged: false,
       estimated_depth_cm: 0.99,
-      calculated_volume_liters: 5.86,
+      calculated_volume_liters: null,
+      crack_severity_index: 0.4151,
+      defect_severity_magnitude: 6.23,
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.2429,
@@ -186,6 +194,8 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       is_submerged: false,
       estimated_depth_cm: 6.09,
       calculated_volume_liters: 25.46,
+      crack_severity_index: null,
+      defect_severity_magnitude: 25.46,
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.4532,
@@ -220,7 +230,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       detection_modality: 'optical_lidar',
       is_submerged: false,
       estimated_depth_cm: 4.14,
-      calculated_volume_liters: 59.24,
+      calculated_volume_liters: null,
+      crack_severity_index: 0.662,
+      defect_severity_magnitude: 9.93,
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.3857,
@@ -280,8 +292,8 @@ export const FALLBACK_DATA: TelemetryResponse = {
   summary: {
     detector: 'ground-truth lookup',
     total_defects: FALLBACK_RECORDS.length,
-    total_volume_liters: 315.87,
-    average_volume_liters: 52.65,
+    total_volume_liters: 169.97,
+    average_volume_liters: 84.99,
     weather_state: 'Clear (Dry Road)',
     is_raining: false,
     submerged_defects: 2,
