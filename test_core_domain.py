@@ -1838,48 +1838,63 @@ class TestPhase23VerificationComprehensive(unittest.TestCase):
         self.assertIn(ev.topsis.priority_level, ["Critical", "High", "Medium", "Low"])
 
     def test_12_reproducibility(self):
+        import tempfile
+        import shutil
         from services.dataset.srmd_builder import SRMDRecordBuilder
         from services.dataset.split_manager import ResearchDataSplitter
+        from scripts.generate_srmd import generate_srmd
 
-        # 1. Deterministic sensor generation
-        b1 = SRMDRecordBuilder(seed=2026)
-        b2 = SRMDRecordBuilder(seed=2026)
-        r1 = b1.synthesize_record("India_001", "India_001.jpg", "D40", [50, 50, 200, 200], {"width": 720, "height": 720, "depth": 3}, 0, 0)
-        r2 = b2.synthesize_record("India_001", "India_001.jpg", "D40", [50, 50, 200, 200], {"width": 720, "height": 720, "depth": 3}, 0, 0)
-        self.assertEqual(r1["lidar"]["depth_cm"], r2["lidar"]["depth_cm"])
-        self.assertEqual(r1["sonar"]["depth_cm"], r2["sonar"]["depth_cm"])
-        self.assertEqual(r1["accelerometer"]["z_accel_g"], r2["accelerometer"]["z_accel_g"])
-        self.assertEqual(r1["traffic"]["traffic_pcu"], r2["traffic"]["traffic_pcu"])
-        self.assertEqual(r1["infrastructure"]["dist_hospital_km"], r2["infrastructure"]["dist_hospital_km"])
+        temp_dir = Path(tempfile.mkdtemp(prefix="srmd_repro_phase23_"))
+        try:
+            # 1. Deterministic sensor generation
+            b1 = SRMDRecordBuilder(seed=2026)
+            b2 = SRMDRecordBuilder(seed=2026)
+            r1 = b1.synthesize_record("India_001", "India_001.jpg", "D40", [50, 50, 200, 200], {"width": 720, "height": 720, "depth": 3}, 0, 0)
+            r2 = b2.synthesize_record("India_001", "India_001.jpg", "D40", [50, 50, 200, 200], {"width": 720, "height": 720, "depth": 3}, 0, 0)
+            self.assertEqual(r1["lidar"]["depth_cm"], r2["lidar"]["depth_cm"])
+            self.assertEqual(r1["sonar"]["depth_cm"], r2["sonar"]["depth_cm"])
+            self.assertEqual(r1["accelerometer"]["z_accel_g"], r2["accelerometer"]["z_accel_g"])
+            self.assertEqual(r1["traffic"]["traffic_pcu"], r2["traffic"]["traffic_pcu"])
+            self.assertEqual(r1["infrastructure"]["dist_hospital_km"], r2["infrastructure"]["dist_hospital_km"])
 
-        # 2. Deterministic split & zero leakage
-        s1 = ResearchDataSplitter(seed=2026)
-        s2 = ResearchDataSplitter(seed=2026)
-        sample_ids = [f"India_{i:06d}" for i in range(15)]
-        split1 = s1.split_image_ids(sample_ids)
-        split2 = s2.split_image_ids(sample_ids)
-        self.assertEqual(split1, split2)
-        self.assertEqual(len(set(split1["train"]) & set(split1["test"])), 0)
-        self.assertEqual(len(set(split1["train"]) & set(split1["validation"])), 0)
-        self.assertEqual(len(set(split1["validation"]) & set(split1["test"])), 0)
+            # 2. Deterministic split & zero leakage exported into temporary directory
+            s1 = ResearchDataSplitter(seed=2026)
+            s2 = ResearchDataSplitter(seed=2026)
+            sample_ids = [f"India_{i:06d}" for i in range(15)]
+            split1 = s1.split_image_ids(sample_ids)
+            split2 = s2.split_image_ids(sample_ids)
+            self.assertEqual(split1, split2)
+            self.assertEqual(len(set(split1["train"]) & set(split1["test"])), 0)
+            self.assertEqual(len(set(split1["train"]) & set(split1["validation"])), 0)
+            self.assertEqual(len(set(split1["validation"]) & set(split1["test"])), 0)
 
-        # 3. metadata.json schema conformance
-        metadata_file = PROJECT_ROOT / "data" / "processed" / "srmd" / "metadata.json"
-        self.assertTrue(metadata_file.is_file())
-        with open(metadata_file, "r", encoding="utf-8") as f:
-            meta = json.load(f)
-        self.assertEqual(meta["dataset_name"], "Smart Road Multimodal Dataset")
-        self.assertEqual(meta["base_dataset"], "RDD2022")
-        self.assertEqual(meta["base_dataset_country"], "India")
-        self.assertEqual(meta["generator_version"], "1.0.0")
-        self.assertEqual(meta["seed"], 2026)
-        self.assertEqual(meta["sensor_fields"], [
-            "lidar_depth_cm",
-            "sonar_depth_cm",
-            "z_accel_g",
-            "traffic_pcu",
-            "dist_hospital_km"
-        ])
+            generate_srmd(
+                input_path=PROJECT_ROOT / "data" / "samples",
+                output_dir=temp_dir,
+                seed=2026,
+                limit=4
+            )
+
+            # 3. metadata.json schema conformance in temporary directory
+            metadata_file = temp_dir / "metadata.json"
+            self.assertTrue(metadata_file.is_file())
+            with open(metadata_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            self.assertEqual(meta["dataset_name"], "Smart Road Multimodal Dataset")
+            self.assertEqual(meta["base_dataset"], "RDD2022")
+            self.assertEqual(meta["base_dataset_country"], "India")
+            self.assertEqual(meta["generator_version"], "1.0.0")
+            self.assertEqual(meta["seed"], 2026)
+            self.assertEqual(meta["sensor_fields"], [
+                "lidar_depth_cm",
+                "sonar_depth_cm",
+                "z_accel_g",
+                "traffic_pcu",
+                "dist_hospital_km"
+            ])
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 
 if __name__ == "__main__":
