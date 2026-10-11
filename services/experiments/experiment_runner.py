@@ -94,13 +94,14 @@ class FusionExperimentRunner:
             "has_sonar": True,
             "has_switching": True,
             "has_gis_context": True,
-            "description": "Physical sensor suite + environmental switching + municipal GIS & TOPSIS prioritization."
+            "description": "Physical sensor suite + environmental switching + municipal GIS (hospital, school, road class) & Fuzzy BWM TOPSIS/VIKOR prioritization."
         }
     }
 
-    def __init__(self, srmd_records_path: Optional[Path] = None):
+    def __init__(self, srmd_records_path: Optional[Path] = None, profile: str = "safety-first"):
         self.records_path = Path(srmd_records_path) if srmd_records_path else PROJECT_ROOT / "data" / "processed" / "srmd" / "srmd_records.json"
-        self.topsis_engine = MCDMPrioritizationEngine()
+        self.profile = profile
+        self.topsis_engine = MCDMPrioritizationEngine(profile=profile, use_calibrated_thresholds=True)
         self.analyzer = SensorDisagreementAnalyzer(impact_threshold_g=1.50)
 
     def load_dataset_records(self) -> List[Dict[str, Any]]:
@@ -125,41 +126,48 @@ class FusionExperimentRunner:
         Executes Experiments A, B, C, D, and E across the dataset and compiles
         measurable comparative outcomes.
         """
+        from services.data_generation.infrastructure_model import encode_road_class
+
         dataset = records if records is not None else self.load_dataset_records()
         if not dataset:
             raise ValueError("Dataset is empty. Cannot run experiments.")
 
         num_records = len(dataset)
 
-        # 1. Compute reference ranking using Experiment E (Ground Truth Multimodal)
+        # 1. Compute reference ranking using Experiment E (Ground Truth Multimodal 6-Criteria)
         ref_matrix = []
         for r in dataset:
             vol = float(r.get("visual", {}).get("calculated_volume_liters", 10.0))
-            pcu = float(r.get("traffic", {}).get("pcu", 15000))
+            pcu = float(r.get("traffic", {}).get("pcu", r.get("traffic", {}).get("traffic_pcu", 15000)))
             dist = float(r.get("infrastructure", {}).get("dist_hospital_km", 3.0))
             spd = float(r.get("accelerometer", {}).get("vehicle_speed_kmh", 40.0))
-            ref_matrix.append([vol, pcu, dist, spd])
+            school_dist = float(r.get("infrastructure", {}).get("school_proximity_km", r.get("infrastructure", {}).get("dist_school_km", 2.0)))
+            road_cls = r.get("traffic", {}).get("road_class", r.get("location", {}).get("road_class", "ARTERIAL"))
+            road_w = float(r.get("traffic", {}).get("road_class_weight", encode_road_class(road_cls)))
+            ref_matrix.append([vol, pcu, dist, spd, school_dist, road_w])
 
-        ref_scores = self.topsis_engine.compute_topsis(np.array(ref_matrix))
-        # 1-based ranks
-        ref_rank_pairs = sorted([(ref_scores[i], i) for i in range(num_records)], reverse=True)
-        ref_ranks = [0] * num_records
-        for rk, (_, idx) in enumerate(ref_rank_pairs):
-            ref_ranks[idx] = rk + 1
+        ref_all = self.topsis_engine.compute_all(np.array(ref_matrix), calibrated=True)
+        ref_ranks = list(ref_all["topsis_ranks"])
+        ref_vikor_ranks = list(ref_all["vikor_ranks"])
 
         # 2. Evaluate each configuration
         results = {}
 
         for code in ["A", "B", "C", "D", "E"]:
             cfg = self.EXPERIMENT_CONFIGS[code]
-            exp_metrics = self._evaluate_configuration(code, cfg, dataset, ref_ranks)
+            exp_metrics = self._evaluate_configuration(code, cfg, dataset, ref_ranks, ref_vikor_ranks)
             results[code] = exp_metrics
 
+        bwm_meta = self.topsis_engine.bwm_diagnostics or {}
         summary = {
             "dataset_size": num_records,
             "experiments": results,
-            "benchmark_date": "2026-09-24",
-            "topsis_weights": [0.35, 0.25, 0.25, 0.15],
+            "benchmark_date": "2026-10-11",
+            "mcdm_profile": self.profile,
+            "criteria": [c["name"] for c in MCDMPrioritizationEngine.get_criteria_specs(extended=True)],
+            "topsis_weights": [round(float(w), 4) for w in self.topsis_engine.weights],
+            "fuzzy_bwm_consistency_ratio": bwm_meta.get("consistency_ratio", 0.0),
+            "priority_thresholds": self.topsis_engine.calibrated_thresholds,
             "impact_threshold_g": 1.50
         }
         return summary
@@ -169,9 +177,12 @@ class FusionExperimentRunner:
         exp_code: str,
         cfg: Dict[str, Any],
         dataset: List[Dict[str, Any]],
-        ref_ranks: List[int]
+        ref_ranks: List[int],
+        ref_vikor_ranks: Optional[List[int]] = None
     ) -> Dict[str, Any]:
         """Evaluates a single experiment configuration over the dataset."""
+        from services.data_generation.infrastructure_model import encode_road_class
+
         n = len(dataset)
         confirmed_detections = 0
         unconfirmed_superficial = 0
@@ -189,9 +200,12 @@ class FusionExperimentRunner:
             is_rain = bool(r.get("environment", {}).get("rain_detected", False))
             lidar_d = float(r.get("lidar", {}).get("effective_depth_cm", 5.0))
             sonar_d = float(r.get("sonar", {}).get("effective_depth_cm", 5.0))
-            pcu = float(r.get("traffic", {}).get("pcu", 15000))
+            pcu = float(r.get("traffic", {}).get("pcu", r.get("traffic", {}).get("traffic_pcu", 15000)))
             dist = float(r.get("infrastructure", {}).get("dist_hospital_km", 3.0))
             spd = float(r.get("accelerometer", {}).get("vehicle_speed_kmh", 40.0))
+            school_dist = float(r.get("infrastructure", {}).get("school_proximity_km", r.get("infrastructure", {}).get("dist_school_km", 2.0)))
+            road_cls = r.get("traffic", {}).get("road_class", r.get("location", {}).get("road_class", "ARTERIAL"))
+            road_w = float(r.get("traffic", {}).get("road_class_weight", encode_road_class(road_cls)))
 
             # Configuration-specific feature resolution
             if exp_code == "A":
@@ -201,6 +215,8 @@ class FusionExperimentRunner:
                 exp_pcu = 10000.0  # Default uncontextualized
                 exp_dist = 5.0     # Default uncontextualized
                 exp_spd = 40.0
+                exp_school_dist = 2.5
+                exp_road_w = 2.0
                 has_physical_confirmation = False
                 is_superficial = True  # Cannot verify whether superficial or deep
                 has_impact = False
@@ -211,6 +227,8 @@ class FusionExperimentRunner:
                 exp_pcu = 10000.0
                 exp_dist = 5.0
                 exp_spd = spd
+                exp_school_dist = 2.5
+                exp_road_w = 2.0
                 has_impact = bool(z_g > 1.50)
                 has_physical_confirmation = has_impact
                 is_superficial = bool(z_g <= 1.15)
@@ -222,6 +240,8 @@ class FusionExperimentRunner:
                 exp_pcu = 10000.0
                 exp_dist = 5.0
                 exp_spd = 40.0
+                exp_school_dist = 2.5
+                exp_road_w = 2.0
                 has_physical_confirmation = bool(effective_d >= 2.0)
                 is_superficial = bool(effective_d < 1.0)
                 has_impact = False
@@ -233,6 +253,8 @@ class FusionExperimentRunner:
                 exp_pcu = 10000.0
                 exp_dist = 5.0
                 exp_spd = spd
+                exp_school_dist = 2.5
+                exp_road_w = 2.0
                 has_impact = bool(z_g > 1.50)
                 has_physical_confirmation = bool(effective_d >= 2.0 or has_impact)
                 is_superficial = bool(effective_d < 1.0 and z_g <= 1.15)
@@ -244,6 +266,8 @@ class FusionExperimentRunner:
                 exp_pcu = pcu
                 exp_dist = dist
                 exp_spd = spd
+                exp_school_dist = school_dist
+                exp_road_w = road_w
                 has_impact = bool(z_g > 1.50)
                 has_physical_confirmation = bool(effective_d >= 2.0 or has_impact)
                 is_superficial = bool(effective_d < 1.0 and z_g <= 1.15)
@@ -271,24 +295,26 @@ class FusionExperimentRunner:
             if has_impact:
                 impact_confirmed_count += 1
 
-            exp_matrix_rows.append([est_vol, exp_pcu, exp_dist, exp_spd])
+            exp_matrix_rows.append([est_vol, exp_pcu, exp_dist, exp_spd, exp_school_dist, exp_road_w])
 
-        # Compute TOPSIS for this experiment
+        # Compute TOPSIS and VIKOR for this experiment
         exp_matrix = np.array(exp_matrix_rows)
-        exp_scores = self.topsis_engine.compute_topsis(exp_matrix)
-
-        # 1-based ranks for this experiment
-        exp_rank_pairs = sorted([(exp_scores[i], i) for i in range(n)], reverse=True)
-        exp_ranks = [0] * n
-        for rk, (_, idx) in enumerate(exp_rank_pairs):
-            exp_ranks[idx] = rk + 1
+        all_res = self.topsis_engine.compute_all(exp_matrix, calibrated=True)
+        exp_scores = all_res["topsis_scores"]
+        exp_ranks = all_res["topsis_ranks"]
+        exp_vikor_q = all_res["vikor_Q"]
+        exp_vikor_ranks = all_res["vikor_ranks"]
 
         for sc in exp_scores:
-            if self.topsis_engine.classify_priority(sc) == "Critical":
+            if self.topsis_engine.classify_priority(sc, calibrated=True) == "Critical":
                 critical_count += 1
 
         # Spearman rank correlation against Reference (Experiment E)
         stability = compute_spearman_rank_correlation(exp_ranks, ref_ranks)
+        vikor_stability = (
+            compute_spearman_rank_correlation(exp_vikor_ranks, ref_vikor_ranks)
+            if ref_vikor_ranks is not None else 1.0
+        )
 
         return {
             "name": cfg["name"],
@@ -299,14 +325,17 @@ class FusionExperimentRunner:
             "impact_confirmation_rate": round(float(impact_confirmed_count / n), 4),
             "sensor_disagreement_rate": round(float(sensor_disagreements / n), 4),
             "topsis_priority_stability": stability,
+            "vikor_priority_stability": vikor_stability,
+            "topsis_vikor_spearman_rho": all_res["spearman_correlation"],
             "mean_topsis_score": round(float(np.mean(exp_scores)), 4),
+            "mean_vikor_q": round(float(np.mean(exp_vikor_q)), 4),
             "critical_priority_count": critical_count
         }
 
     def format_results_markdown_table(self, summary: Dict[str, Any]) -> str:
         """Formats the comparative experiment results into a clean markdown table."""
         lines = [
-            "| Configuration | Confirmation Rate | Unconfirmed Superficial | Impact Confirmation | TOPSIS Stability (rho) | Disagreement Rate | Critical Count |",
+            "| Configuration | Confirmation Rate | Unconfirmed Superficial | Impact Confirmation | TOPSIS Stability (rho) | VIKOR Stability (rho) | Critical Count |",
             "| :--- | :---: | :---: | :---: | :---: | :---: | :---: |"
         ]
         for code in ["A", "B", "C", "D", "E"]:
@@ -315,7 +344,7 @@ class FusionExperimentRunner:
             lines.append(
                 f"| **{name_short}** | {exp['detection_confirmation_rate']*100:.1f}% | "
                 f"{exp['unconfirmed_superficial_rate']*100:.1f}% | {exp['impact_confirmation_rate']*100:.1f}% | "
-                f"**{exp['topsis_priority_stability']:.4f}** | {exp['sensor_disagreement_rate']*100:.1f}% | "
+                f"**{exp['topsis_priority_stability']:.4f}** | **{exp.get('vikor_priority_stability', 1.0):.4f}** | "
                 f"{exp['critical_priority_count']} |"
             )
         return "\n".join(lines)

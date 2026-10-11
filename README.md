@@ -55,12 +55,15 @@ The platform produces the **Smart Road Multimodal Dataset (SRMD)**, provides a r
 | `dynamic_impact_triggered` | **SIMULATED** | Boolean: `z_accel_g > 1.5g` physical impact confirmation |
 | `traffic_pcu` | **SIMULATED** | Road-class-correlated traffic volume (PCU/day) from Greenshields model |
 | `road_class` | **SIMULATED** | Road context profile: LOCAL / COLLECTOR / ARTERIAL / HIGH_TRAFFIC_CORRIDOR |
+| `road_class_weight` | **DERIVED** | Ordinal road hierarchy weight (`LOCAL=1`, `COLLECTOR=2`, `ARTERIAL=3`, `HIGH_TRAFFIC_CORRIDOR=4`) |
 | `dist_hospital_km` | **SIMULATED** | Geodesic distance to nearest hospital in documented Mumbai demonstration corridor |
 | `is_emergency_corridor` | **SIMULATED** | True when `dist_hospital_km ≤ 1.0 km` |
+| `school_proximity_km` | **SIMULATED** | Geodesic Haversine distance to nearest school across 18 Mumbai Western Corridor schools |
+| `is_school_zone` | **SIMULATED** | True when `school_proximity_km ≤ 0.5 km` |
 | `latitude` / `longitude` | **SIMULATED** | Deterministic synthetic coordinates along Mumbai Metropolitan Urban Corridor |
 | `location_mode` | **SIMULATED** | GPS provenance flag: `synthetic_location` (default) |
-| `topsis_score` | **DERIVED** | Multi-criteria urgency score from TOPSIS MCDM engine |
-| `priority_level` | **DERIVED** | Critical / High / Medium / Low classification from TOPSIS score |
+| `topsis_score` | **DERIVED** | Multi-criteria urgency score from Fuzzy BWM TOPSIS/VIKOR MCDM engine |
+| `priority_level` | **DERIVED** | Critical / High / Medium / Low classification from calibrated MCDM thresholds |
 
 > **Important:** Simulated fields are generated using physics-consistent, reproducible models seeded with `SEED = 2026`. They do not represent real sensor readings from the RDD2022 source vehicles. This distinction is explicitly encoded in every record's `provenance` block and every `*_source` field.
 
@@ -216,27 +219,31 @@ LiDAR  Sonar   Impact     TOPSIS Priority
 
 ---
 
-## 📊 TOPSIS MCDM Prioritisation
+## 📊 Fuzzy BWM + TOPSIS / VIKOR MCDM Prioritisation
 
-**Criteria weights (preserved from original project specification):**
+See [`docs/MCDM.md`](./docs/MCDM.md) for the complete mathematical specification (Triangular Fuzzy Numbers, GMIR defuzzification, Guo & Zhao minimax optimization, VIKOR $S_i, R_i, Q_i$ compromise solution checks, and Spearman rank concordance).
 
-| Criterion | Weight | Direction | Rationale |
-|---|---|---|---|
-| `calculated_volume_liters` | **0.35** | Benefit (↑) | Larger void = greater vehicle damage risk |
-| `traffic_pcu` | **0.25** | Benefit (↑) | Higher daily traffic (PCU/day) = more vehicles at risk |
-| `dist_hospital_km` | **0.25** | **Cost (↓)** | Smaller distance = higher emergency access urgency |
-| `vehicle_speed_kmh` | **0.15** | Benefit (↑) | Higher speed = greater impact severity |
+**Extended 6-Criteria Model (with Fuzzy BWM weight profiles):**
 
-> **Critical direction note:** `dist_hospital_km` is a **cost criterion**. A defect located 0.3 km from a trauma hospital receives *higher* TOPSIS urgency than an identical defect 12 km away.
+| Criterion | `safety-first` | `traffic-first` | `equity-first` | Legacy 4-Crit | Direction | Rationale |
+|---|---:|---:|---:|---:|---|---|
+| `calculated_volume_liters` | **0.2798** | 0.2263 | 0.1587 | 0.35 | Benefit (↑) | Larger void = greater vehicle damage & impact risk |
+| `traffic_pcu` | **0.1346** | 0.2546 | 0.1021 | 0.25 | Benefit (↑) | Higher daily traffic (PCU/day) = more vehicles at risk |
+| `dist_hospital_km` | **0.2418** | 0.0876 | 0.2950 | 0.25 | **Cost (↓)** | Smaller distance to trauma hospital = higher emergency access urgency |
+| `speed_kmh` | **0.1346** | 0.1362 | 0.0799 | 0.15 | Benefit (↑) | Higher speed = greater dynamic impact severity |
+| `school_proximity_km` | **0.1346** | 0.0690 | 0.2622 | — | **Cost (↓)** | Smaller Haversine distance across 18 Mumbai Western Corridor schools = higher pedestrian safety urgency |
+| `road_class` | **0.0746** | 0.2263 | 0.1021 | — | Benefit (↑) | Ordinal hierarchy weight (`LOCAL=1`, `COLLECTOR=2`, `ARTERIAL=3`, `HIGH_TRAFFIC_CORRIDOR=4`) |
 
-**Priority thresholds:**
+> **Critical direction note:** Both `dist_hospital_km` and `school_proximity_km` are **cost criteria**. Defects located near trauma hospitals or K-12 schools receive *higher* TOPSIS/VIKOR urgency than identical defects further away.
 
-| TOPSIS Score | Priority Level |
-|---|---|
-| ≥ 0.75 | 🔴 Critical |
-| ≥ 0.50 | 🟠 High |
-| ≥ 0.25 | 🟡 Medium |
-| < 0.25 | 🟢 Low |
+**Priority thresholds (calibrated in [`config/sensor_profiles.yaml`](./config/sensor_profiles.yaml)):**
+
+| Calibrated Score (`use_calibrated_thresholds=True`) | Legacy Quartile Score | Priority Level |
+|---|---|---|
+| ≥ 0.57 | ≥ 0.75 | 🔴 Critical |
+| ≥ 0.45 | ≥ 0.50 | 🟠 High |
+| ≥ 0.35 | ≥ 0.25 | 🟡 Medium |
+| < 0.35 | < 0.25 | 🟢 Low |
 
 ---
 
@@ -540,6 +547,15 @@ Returns SRMD research statistics: class counts, average sensor values, modality 
 
 ### `GET /api/v1/images/{image_name}`
 Serves RDD2022 source images from `data/samples/images/`. Returns SVG placeholder for unknown images.
+
+### `GET /api/v1/preprocess/preview/{image_name}`
+Returns both the original RGB image and the CIE LAB L-channel CLAHE-enhanced image (`clip_limit=2.0`, `tile_grid=(8,8)`) as base64 data URIs along with luminance/contrast metrics for a before/after slider.
+
+### `GET /api/v1/prioritization?method=topsis|vikor|both&profile=safety-first`
+Computes multi-criteria rankings across active road defects using TOPSIS, VIKOR ($S_i, R_i, Q_i$ with $v=0.5$ and acceptable advantage/stability checks), or both (with Spearman rank correlation), using any of the 3 named Fuzzy BWM profiles (`safety-first`, `traffic-first`, `equity-first`).
+
+### `POST /api/v1/prioritization`
+Computes rankings using custom crisp weights (`weights: [w1, ..., w6]`) or custom Fuzzy BWM comparison vectors (`best_to_others`, `others_to_worst`).
 
 ---
 

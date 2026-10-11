@@ -16,7 +16,7 @@ Standard Interface:
 
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Tuple
 import numpy as np
 from PIL import Image
 
@@ -28,7 +28,13 @@ from .schemas import (
     CLASS_LABELS,
     CLASS_SLUGS
 )
-from .preprocessing import load_image, letterbox, denormalize_box_from_letterbox
+from .preprocessing import (
+    load_image,
+    letterbox,
+    denormalize_box_from_letterbox,
+    apply_clahe,
+    get_preprocessing_config
+)
 from .detector import (
     RoadDamageDetector,
     ModelAdapter,
@@ -49,10 +55,18 @@ class RDD2022Detector(RoadDamageDetector):
         adapter: Optional[ModelAdapter] = None,
         weights_path: Optional[Union[str, Path]] = None,
         default_conf_threshold: float = 0.25,
-        default_iou_threshold: float = 0.45
+        default_iou_threshold: float = 0.45,
+        enable_clahe: Optional[bool] = None,
+        clahe_clip_limit: Optional[float] = None,
+        clahe_tile_grid: Optional[Tuple[int, int]] = None
     ):
         self.conf_threshold = default_conf_threshold
         self.iou_threshold = default_iou_threshold
+
+        prep_cfg = get_preprocessing_config()
+        self.enable_clahe = bool(prep_cfg["enable_clahe"]) if enable_clahe is None else bool(enable_clahe)
+        self.clahe_clip_limit = float(prep_cfg["clip_limit"]) if clahe_clip_limit is None else float(clahe_clip_limit)
+        self.clahe_tile_grid = tuple(prep_cfg["tile_grid"]) if clahe_tile_grid is None else tuple(clahe_tile_grid)
 
         # Resolve or auto-select adapter
         if adapter is not None:
@@ -129,6 +143,14 @@ class RDD2022Detector(RoadDamageDetector):
 
         # Ingest image
         img_rgb, (orig_w, orig_h) = load_image(image)
+
+        # Apply CLAHE contrast enhancement when enabled via config flag (default on)
+        if self.enable_clahe:
+            img_rgb = apply_clahe(
+                img_rgb,
+                clip_limit=self.clahe_clip_limit,
+                tile_grid=self.clahe_tile_grid
+            )
 
         # Infer image ID if input is a path
         if not image_id and isinstance(image, (str, Path)):

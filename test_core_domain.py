@@ -1907,8 +1907,294 @@ class TestPhase23VerificationComprehensive(unittest.TestCase):
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+class TestBackendCLAHEMCDMAndPrioritization(unittest.TestCase):
+    """
+    Unit tests for:
+    1. CLAHE preprocessing (cv2 LAB L-channel + NumPy/PIL fallback), detector config flag, and preview endpoint.
+    2. Fuzzy BWM weight derivation (TFN comparison vectors, 3 named profiles + custom).
+    3. VIKOR compromise ranking (S_i, R_i, Q_i with v=0.5, acceptable advantage & stability checks).
+    4. compute_all() returning TOPSIS rank, VIKOR rank, and Spearman correlation.
+    5. School proximity (Haversine over >=15 Mumbai Western Corridor schools) & road_class ordinal weight.
+    6. GET/POST /api/v1/prioritization endpoints and calibrated priority thresholds.
+    """
+
+    def setUp(self):
+        import asyncio
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+    def tearDown(self):
+        self.loop.close()
+
+    def test_apply_clahe_cv2_and_numpy_fallback(self):
+        from services.cv.preprocessing import apply_clahe, load_image
+        # Synthetic low-contrast 2D road-surface texture image (128x128x3)
+        xx, yy = np.meshgrid(np.linspace(0.0, 1.0, 128), np.linspace(0.0, 1.0, 128))
+        pat = np.clip(100.0 + 25.0 * np.sin(2.0 * np.pi * 4.0 * xx) * np.cos(2.0 * np.pi * 4.0 * yy), 0, 255).astype(np.uint8)
+        low_contrast_rgb = np.stack([pat, pat, pat], axis=-1)
+
+        # 1. Default OpenCV LAB L-channel CLAHE path
+        clahe_cv2 = apply_clahe(low_contrast_rgb, clip_limit=2.0, tile_grid=(8, 8), force_fallback=False)
+        self.assertEqual(clahe_cv2.shape, low_contrast_rgb.shape)
+        self.assertEqual(clahe_cv2.dtype, np.uint8)
+        self.assertGreater(float(np.std(clahe_cv2)), float(np.std(low_contrast_rgb)))
+
+        # 2. NumPy/PIL fallback path (when cv2 is missing or force_fallback=True)
+        clahe_np = apply_clahe(low_contrast_rgb, clip_limit=2.0, tile_grid=(8, 8), force_fallback=True)
+        self.assertEqual(clahe_np.shape, low_contrast_rgb.shape)
+        self.assertEqual(clahe_np.dtype, np.uint8)
+        self.assertGreater(float(np.std(clahe_np)), float(np.std(low_contrast_rgb)))
+
+        # 3. Real sample image test
+        sample_img = PROJECT_ROOT / "data" / "samples" / "images" / "India_000045.jpg"
+        if sample_img.exists():
+            orig_rgb, (w, h) = load_image(sample_img)
+            enhanced = apply_clahe(orig_rgb, clip_limit=2.0, tile_grid=(8, 8))
+            self.assertEqual(enhanced.shape, (h, w, 3))
+            self.assertFalse(np.array_equal(orig_rgb, enhanced))
+
+    def test_detector_clahe_config_flag(self):
+        from services.cv.rdd2022_detector import RDD2022Detector
+        sample_img = PROJECT_ROOT / "data" / "samples" / "images" / "India_000045.jpg"
+        self.assertTrue(sample_img.exists())
+
+        # Default detector has enable_clahe=True from config/sensor_profiles.yaml
+        det_on = RDD2022Detector()
+        self.assertTrue(det_on.enable_clahe)
+        res_on = det_on.detect_full(sample_img)
+        self.assertGreater(len(res_on.detections), 0)
+
+        # Detector with enable_clahe=False
+        det_off = RDD2022Detector(enable_clahe=False)
+        self.assertFalse(det_off.enable_clahe)
+        res_off = det_off.detect_full(sample_img)
+        self.assertEqual(len(res_off.detections), len(res_on.detections))
+
+    def test_preprocess_preview_endpoint(self):
+        from fastapi import HTTPException
+        resp = self.loop.run_until_complete(
+            main.get_preprocess_preview("India_000045.jpg", clip_limit=2.0, tile_grid_size=8)
+        )
+        self.assertEqual(resp["status"], "success")
+        self.assertEqual(resp["image_name"], "India_000045.jpg")
+        self.assertEqual(resp["clip_limit"], 2.0)
+        self.assertEqual(resp["tile_grid"], [8, 8])
+        self.assertTrue(resp["original_image"].startswith("data:image/jpeg;base64,"))
+        self.assertTrue(resp["clahe_image"].startswith("data:image/jpeg;base64,"))
+        self.assertNotEqual(resp["original_image"], resp["clahe_image"])
+        self.assertIn("original_contrast_std", resp["metrics"])
+        self.assertIn("clahe_contrast_std", resp["metrics"])
+
+        # Missing image raises 404
+        with self.assertRaises(HTTPException) as ctx:
+            self.loop.run_until_complete(
+                main.get_preprocess_preview("NonExistent_999999.jpg", clip_limit=2.0, tile_grid_size=8)
+            )
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_fuzzy_bwm_weight_derivation_and_profiles(self):
+        from services.backend.app.services.mcdm_engine import (
+            derive_fuzzy_bwm_weights, get_fuzzy_bwm_profile
+        )
+        # 1. Test all 3 named profiles ('safety-first', 'traffic-first', 'equity-first')
+        for prof_name, expected_best, expected_worst in [
+            ("safety-first", 0, 5),
+            ("traffic-first", 1, 4),
+            ("equity-first", 2, 3),
+        ]:
+            prof = get_fuzzy_bwm_profile(prof_name)
+            w = np.asarray(prof["weights"], dtype=float)
+            self.assertEqual(w.shape, (6,))
+            self.assertAlmostEqual(float(np.sum(w)), 1.0, places=3)
+            self.assertTrue(np.all(w > 0))
+            self.assertEqual(prof["best_idx"], expected_best)
+            self.assertEqual(prof["worst_idx"], expected_worst)
+            # Best criterion must have max weight, worst criterion must have min weight
+            self.assertGreaterEqual(w[expected_best], float(np.max(w)) - 1e-4)
+            self.assertLessEqual(w[expected_worst], float(np.min(w)) + 1e-4)
+            self.assertLess(prof["consistency_ratio"], 0.10)
+            for l_v, m_v, u_v in prof["fuzzy_weights"]:
+                self.assertTrue(0 < l_v <= m_v <= u_v)
+
+        # 2. Custom TFN vectors via derive_fuzzy_bwm_weights
+        custom_bwm = derive_fuzzy_bwm_weights(
+            best_to_others=[(1.0, 1.0, 1.0), (1.5, 2.0, 2.5), (2.5, 3.0, 3.5), (3.5, 4.0, 4.5)],
+            others_to_worst=[(3.5, 4.0, 4.5), (2.5, 3.0, 3.5), (1.5, 2.0, 2.5), (1.0, 1.0, 1.0)],
+            best_idx=0,
+            worst_idx=3
+        )
+        cw = custom_bwm["weights"]
+        self.assertEqual(len(cw), 4)
+        self.assertAlmostEqual(float(np.sum(cw)), 1.0, places=3)
+        self.assertTrue(cw[0] > cw[1] > cw[2] > cw[3])
+        self.assertLess(custom_bwm["consistency_ratio"], 0.10)
+
+    def test_vikor_compromise_ranking_and_checks(self):
+        engine = MCDMPrioritizationEngine(profile="safety-first", use_calibrated_thresholds=True)
+        # 4 alternatives across 6 criteria:
+        # Alt 0: Dominates all criteria -> Q=0.0, rank=1, acceptable advantage & stability True
+        matrix = np.array([
+            [140.0, 30000.0, 0.2, 55.0, 0.2, 4.0],  # Alt 0: Clear ideal best
+            [40.0,  15000.0, 1.8, 35.0, 1.2, 3.0],  # Alt 1: Moderate
+            [15.0,  8000.0,  3.2, 28.0, 2.0, 2.0],  # Alt 2: Minor
+            [3.0,   3000.0,  5.0, 20.0, 3.5, 1.0],  # Alt 3: Least urgent
+        ])
+        vikor = engine.compute_vikor(matrix, v=0.5)
+        self.assertIn("S", vikor)
+        self.assertIn("R", vikor)
+        self.assertIn("Q", vikor)
+        self.assertEqual(vikor["v"], 0.5)
+        self.assertAlmostEqual(vikor["DQ"], 1.0 / 3.0, places=4)
+        self.assertEqual(vikor["ranks"], [1, 2, 3, 4])
+        self.assertAlmostEqual(float(vikor["Q"][0]), 0.0, places=4)
+        self.assertAlmostEqual(float(vikor["Q"][3]), 1.0, places=4)
+        self.assertTrue(vikor["acceptable_advantage"])
+        self.assertTrue(vikor["acceptable_stability"])
+        self.assertEqual(vikor["compromise_solution"], [0])
+
+        # Near-tied top 2 alternatives -> acceptable_advantage must be False
+        near_tie_matrix = np.array([
+            [100.0, 25000.0, 0.5, 45.0, 0.4, 4.0],
+            [99.5,  24900.0, 0.51, 44.8, 0.41, 4.0],
+            [10.0,  5000.0,  4.0, 20.0, 3.0, 1.0],
+        ])
+        vikor_tie = engine.compute_vikor(near_tie_matrix, v=0.5)
+        self.assertFalse(vikor_tie["acceptable_advantage"])
+        self.assertGreaterEqual(len(vikor_tie["compromise_solution"]), 2)
+
+    def test_compute_all_topsis_vikor_and_spearman(self):
+        engine = MCDMPrioritizationEngine(profile="safety-first", use_calibrated_thresholds=True)
+        srmd_file = PROJECT_ROOT / "data" / "processed" / "srmd" / "srmd_records.json"
+        records = json.loads(srmd_file.read_text(encoding="utf-8"))
+        matrix = np.array([
+            [
+                r["visual"]["calculated_volume_liters"],
+                r["traffic"]["pcu"],
+                r["infrastructure"]["dist_hospital_km"],
+                r["accelerometer"]["vehicle_speed_kmh"],
+                r["infrastructure"]["school_proximity_km"],
+                r["traffic"]["road_class_weight"],
+            ]
+            for r in records
+        ])
+        res = engine.compute_all(matrix, v=0.5, calibrated=True)
+        self.assertEqual(len(res["topsis_ranks"]), len(records))
+        self.assertEqual(len(res["vikor_ranks"]), len(records))
+        self.assertEqual(sorted(res["topsis_ranks"]), list(range(1, len(records) + 1)))
+        self.assertEqual(sorted(res["vikor_ranks"]), list(range(1, len(records) + 1)))
+        self.assertTrue(-1.0 <= res["spearman_correlation"] <= 1.0)
+        self.assertGreater(res["spearman_correlation"], 0.6)
+        # TOPSIS ranks SRMD-IND-000045-00 (index 0, 144.4L highway pothole) as Rank 1;
+        # VIKOR ranks SRMD-IND-000102-00 (index 1, lowest individual regret R_i) as Rank 1.
+        self.assertEqual(res["topsis_ranks"][0], 1)
+        self.assertEqual(res["vikor_ranks"][1], 1)
+
+    def test_school_registry_and_road_class_criteria(self):
+        from services.data_generation.infrastructure_model import (
+            DEFAULT_SCHOOLS, InfrastructureModel, encode_road_class
+        )
+        # 1. Verify >= 15 real Mumbai Western Corridor schools
+        self.assertGreaterEqual(len(DEFAULT_SCHOOLS), 15)
+        for sch in DEFAULT_SCHOOLS:
+            self.assertIn("name", sch)
+            self.assertTrue(19.04 <= sch["lat"] <= 19.25, f"School lat out of corridor: {sch}")
+            self.assertTrue(72.82 <= sch["lon"] <= 72.89, f"School lon out of corridor: {sch}")
+
+        # 2. Haversine distance to nearest school (St. Stanislaus High School at 19.0548, 72.8286)
+        infra = InfrastructureModel(seed=2026)
+        sim_near_school = infra.simulate(latitude=19.0549, longitude=72.8287)
+        self.assertEqual(sim_near_school["nearest_school_name"], "St. Stanislaus High School")
+        self.assertLess(sim_near_school["school_proximity_km"], 0.15)
+        self.assertTrue(sim_near_school["is_school_zone"])
+
+        # 3. Ordinal road class encoding
+        self.assertEqual(encode_road_class("LOCAL"), 1)
+        self.assertEqual(encode_road_class("COLLECTOR"), 2)
+        self.assertEqual(encode_road_class("ARTERIAL"), 3)
+        self.assertEqual(encode_road_class("HIGH_TRAFFIC_CORRIDOR"), 4)
+
+        # 4. Directionality in 6-criteria MCDM:
+        # Closer school (smaller school_proximity_km) and higher road class must increase TOPSIS score
+        engine = MCDMPrioritizationEngine(profile="safety-first", use_calibrated_thresholds=True)
+        mat_school = np.array([
+            [30.0, 15000.0, 1.5, 40.0, 0.15, 3.0],  # 0.15 km from school
+            [30.0, 15000.0, 1.5, 40.0, 4.50, 3.0],  # 4.50 km from school
+        ])
+        sc_school = engine.compute_topsis(mat_school)
+        self.assertGreater(sc_school[0], sc_school[1])
+
+        mat_road = np.array([
+            [30.0, 15000.0, 1.5, 40.0, 1.0, 4.0],  # HIGH_TRAFFIC_CORRIDOR (4)
+            [30.0, 15000.0, 1.5, 40.0, 1.0, 1.0],  # LOCAL (1)
+        ])
+        sc_road = engine.compute_topsis(mat_road)
+        self.assertGreater(sc_road[0], sc_road[1])
+
+    def test_prioritization_get_and_post_endpoints_and_calibrated_thresholds(self):
+        # 1. GET /api/v1/prioritization across methods and profiles
+        for method in ("topsis", "vikor", "both"):
+            res = self.loop.run_until_complete(
+                main.get_prioritization(method=method, profile="safety-first", v=0.5)
+            )
+            self.assertEqual(res["status"], "success")
+            self.assertEqual(res["method"], method)
+            self.assertEqual(res["profile"], "safety-first")
+            self.assertEqual(len(res["weights"]), 6)
+            self.assertGreaterEqual(res["total"], 6)
+            self.assertIn("spearman_correlation", res)
+            self.assertIn("vikor_checks", res)
+            # Calibrated thresholds must produce at least 1 Critical item on the demo set
+            crit_items = [r for r in res["results"] if r["priority_level"] == "Critical"]
+            self.assertGreaterEqual(
+                len(crit_items), 1,
+                f"Expected >= 1 Critical item for method={method}, got {res['results']}"
+            )
+
+        # 2. Test traffic-first and equity-first profiles
+        for prof in ("traffic-first", "equity-first"):
+            res_p = self.loop.run_until_complete(
+                main.get_prioritization(method="both", profile=prof, v=0.5)
+            )
+            self.assertEqual(res_p["profile"], prof)
+            crit_p = [r for r in res_p["results"] if r["priority_level"] == "Critical"]
+            self.assertGreaterEqual(len(crit_p), 1)
+
+        # 3. POST /api/v1/prioritization with custom crisp weights
+        req_weights = main.CustomPrioritizationRequest(
+            method="both",
+            profile="custom",
+            weights=[0.30, 0.20, 0.20, 0.10, 0.10, 0.10],
+            v=0.5
+        )
+        post_res = self.loop.run_until_complete(main.post_custom_prioritization(req_weights))
+        self.assertEqual(post_res["status"], "success")
+        self.assertEqual(post_res["profile"], "custom")
+        np.testing.assert_allclose(post_res["weights"], [0.30, 0.20, 0.20, 0.10, 0.10, 0.10], atol=1e-3)
+
+        # 4. POST /api/v1/prioritization with custom Fuzzy BWM comparison vectors
+        req_bwm = main.CustomPrioritizationRequest(
+            method="both",
+            profile="custom",
+            best_to_others=["EI", "FI", "WI", "FI", "FI", "AI"],
+            others_to_worst=["AI", "FI", "VI", "FI", "FI", "EI"],
+            best_idx=0,
+            worst_idx=5,
+            v=0.5
+        )
+        post_bwm_res = self.loop.run_until_complete(main.post_custom_prioritization(req_bwm))
+        self.assertEqual(post_bwm_res["status"], "success")
+        self.assertLess(post_bwm_res["fuzzy_bwm"]["consistency_ratio"], 0.10)
+
+        # 5. Verify ablation benchmark file in runs/experiments/fusion_benchmark.json
+        bench_path = PROJECT_ROOT / "runs" / "experiments" / "fusion_benchmark.json"
+        self.assertTrue(bench_path.exists())
+        bench = json.loads(bench_path.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(bench["experiments"]["E"]["critical_priority_count"], 1)
+        self.assertIn("vikor_priority_stability", bench["experiments"]["E"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 

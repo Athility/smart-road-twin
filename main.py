@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -10,11 +10,18 @@ from typing import List, Dict, Any, Optional
 
 sys.path.insert(0, os.path.abspath("."))
 from services.ai_engine.pipeline.depth_estimator import EnvironmentalSensorSwitching
-from services.backend.app.services.mcdm_engine import MCDMPrioritizationEngine
+from services.backend.app.services.mcdm_engine import (
+    MCDMPrioritizationEngine,
+    get_fuzzy_bwm_profile,
+    encode_road_class,
+    NAMED_BWM_PROFILES
+)
+from services.data_generation.infrastructure_model import InfrastructureModel
+from services.cv.preprocessing import load_image, apply_clahe, encode_image_base64, HAS_CV2
 
 app = FastAPI(
     title="Smart Digital Twin API",
-    description="Municipal road infrastructure monitoring, AI depth estimation, and TOPSIS hazard prioritization API",
+    description="Municipal road infrastructure monitoring, AI depth estimation, and Fuzzy BWM / TOPSIS / VIKOR hazard prioritization API",
     version="1.0.0"
 )
 
@@ -33,6 +40,8 @@ sample_images_dir = os.path.join(os.path.dirname(__file__), "data", "samples", "
 if os.path.exists(sample_images_dir):
     app.mount("/static/rdd2022/images", StaticFiles(directory=sample_images_dir), name="rdd2022_images")
 
+_infra_lookup = InfrastructureModel(seed=2026)
+
 class TelemetryPayload(BaseModel):
     vehicle_id: str = Field(..., min_length=1, max_length=64, description="Vehicle fleet ID")
     latitude: float = Field(..., ge=-90.0, le=90.0, description="GPS Latitude (-90 to 90)")
@@ -43,8 +52,9 @@ class TelemetryPayload(BaseModel):
     sonar_depth_cm: float = Field(..., ge=0.0, le=500.0, description="Raw Sonar distance measurement (cm)")
     z_accel_g: float = Field(..., ge=-20.0, le=20.0, description="Z-axis accelerometer reading (g)")
     surface_area_sqm: float = Field(..., ge=0.001, le=100.0, description="Defect surface area (m^2)")
-    traffic_pcu: int = Field(..., ge=0, le=200000, description="Traffic volume in Passenger Car Units")
+    traffic_pcu: int = Field(..., ge=0, le=200000, description="Traffic volume in Passenger Car Units (PCU/day)")
     dist_hospital_km: float = Field(..., ge=0.01, le=200.0, description="Distance to nearest hospital (km)")
+    school_proximity_km: Optional[float] = Field(None, ge=0.01, le=200.0, description="Distance to nearest school (km)")
     speed_kmh: float = Field(..., ge=0.0, le=250.0, description="Vehicle travel speed (km/h)")
     # Provenance and visual detection attributes
     data_source: Optional[str] = Field("MULTIMODAL", description="Data source: RDD2022, SYNTHETIC SENSOR, SYNTHETIC GIS, or MULTIMODAL")
@@ -56,6 +66,18 @@ class TelemetryPayload(BaseModel):
     bbox: Optional[List[float]] = Field(None, description="Bounding box [ymin, xmin, ymax, xmax]")
     road_name: Optional[str] = Field(None, description="Roadway name")
     road_class: Optional[str] = Field(None, description="Roadway hierarchy classification")
+
+
+class CustomPrioritizationRequest(BaseModel):
+    method: str = Field("both", description="Prioritization method: 'topsis', 'vikor', or 'both'")
+    profile: str = Field("custom", description="Weight profile name ('safety-first', 'traffic-first', 'equity-first', or 'custom')")
+    weights: Optional[List[float]] = Field(None, description="Custom crisp weights (length 4 or 6)")
+    best_to_others: Optional[List[Any]] = Field(None, description="Fuzzy BWM Best-to-Others TFN vector")
+    others_to_worst: Optional[List[Any]] = Field(None, description="Fuzzy BWM Others-to-Worst TFN vector")
+    best_idx: Optional[int] = Field(None, description="Index of Best criterion (0-5)")
+    worst_idx: Optional[int] = Field(None, description="Index of Worst criterion (0-5)")
+    v: float = Field(0.5, ge=0.0, le=1.0, description="VIKOR group utility weight v in [0, 1]")
+
 
 # In-memory storage and thread-safe lock for telemetry events
 telemetry_store: List[Dict[str, Any]] = []
@@ -71,44 +93,52 @@ def get_active_detector_label() -> str:
 
 ACTIVE_DETECTOR = get_active_detector_label()
 
+def _build_record_6criteria_row(item: Dict[str, Any]) -> List[float]:
+    return [
+        float(item["processed_telemetry"]["calculated_volume_liters"]),
+        float(item["traffic_pcu"]),
+        float(item["dist_hospital_km"]),
+        float(item["speed_kmh"]),
+        float(item.get("school_proximity_km", 0.5)),
+        float(encode_road_class(item.get("road_class", "ARTERIAL")))
+    ]
+
 def recompute_topsis_for_all():
     if not telemetry_store:
         return
-    engine = MCDMPrioritizationEngine()
+    engine = MCDMPrioritizationEngine(profile="safety-first", use_calibrated_thresholds=True)
     if len(telemetry_store) == 1:
         # Reference against standard road thresholds if only 1 item
-        ref_worst = [0.1, 1000, 10.0, 10.0]
-        ref_best = [80.0, 30000, 0.1, 70.0]
+        ref_worst = [0.1, 1000.0, 10.0, 10.0, 5.0, 1.0]
+        ref_best = [80.0, 30000.0, 0.1, 70.0, 0.1, 4.0]
         item = telemetry_store[0]
         mat = np.array([
-            [
-                item["processed_telemetry"]["calculated_volume_liters"],
-                item["traffic_pcu"],
-                item["dist_hospital_km"],
-                item["speed_kmh"]
-            ],
+            _build_record_6criteria_row(item),
             ref_worst,
             ref_best
         ])
-        scores = engine.compute_topsis(mat)
-        score = float(scores[0])
+        all_res = engine.compute_all(mat, calibrated=True)
+        score = float(all_res["topsis_scores"][0])
         item["topsis_score"] = score
-        item["priority_level"] = engine.classify_priority(score)
+        item["topsis_rank"] = 1
+        item["vikor_S"] = float(all_res["vikor_S"][0])
+        item["vikor_R"] = float(all_res["vikor_R"][0])
+        item["vikor_Q"] = float(all_res["vikor_Q"][0])
+        item["vikor_rank"] = 1
+        item["priority_level"] = engine.classify_priority(score, calibrated=True)
         return
 
-    matrix_rows = []
-    for item in telemetry_store:
-        matrix_rows.append([
-            item["processed_telemetry"]["calculated_volume_liters"],
-            item["traffic_pcu"],
-            item["dist_hospital_km"],
-            item["speed_kmh"]
-        ])
-    matrix = np.array(matrix_rows)
-    scores = engine.compute_topsis(matrix)
+    matrix = np.array([_build_record_6criteria_row(item) for item in telemetry_store])
+    all_res = engine.compute_all(matrix, calibrated=True)
     for idx, item in enumerate(telemetry_store):
-        item["topsis_score"] = float(scores[idx])
-        item["priority_level"] = engine.classify_priority(float(scores[idx]))
+        score = float(all_res["topsis_scores"][idx])
+        item["topsis_score"] = score
+        item["topsis_rank"] = int(all_res["topsis_ranks"][idx])
+        item["vikor_S"] = float(all_res["vikor_S"][idx])
+        item["vikor_R"] = float(all_res["vikor_R"][idx])
+        item["vikor_Q"] = float(all_res["vikor_Q"][idx])
+        item["vikor_rank"] = int(all_res["vikor_ranks"][idx])
+        item["priority_level"] = engine.classify_priority(score, calibrated=True)
 
 def process_and_store_telemetry(payload_dict: dict) -> dict:
     global _pothole_counter
@@ -122,6 +152,13 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
         surface_area_sqm=payload_dict["surface_area_sqm"]
     )
 
+    lat = float(payload_dict["latitude"])
+    lon = float(payload_dict["longitude"])
+    school_info, school_geodesic = _infra_lookup.find_nearest_school(lat, lon)
+    computed_school_km = round(max(0.05, school_geodesic * _infra_lookup.tortuosity_factor), 2)
+    school_km = float(payload_dict.get("school_proximity_km") or computed_school_km)
+    road_cls = payload_dict.get("road_class") or "HIGH_TRAFFIC_CORRIDOR"
+
     with _store_lock:
         _pothole_counter += 1
         img_id = payload_dict.get("image_id", f"India_{_pothole_counter:06d}")
@@ -130,8 +167,8 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
             "id": payload_dict.get("id") or f"POTHOLE-{_pothole_counter:04d}",
             "timestamp": payload_dict.get("timestamp") or datetime.now(timezone.utc).isoformat(),
             "vehicle_id": payload_dict["vehicle_id"],
-            "latitude": float(payload_dict["latitude"]),
-            "longitude": float(payload_dict["longitude"]),
+            "latitude": lat,
+            "longitude": lon,
             "rain_detected": bool(payload_dict["rain_detected"]),
             "mean_luminance": float(payload_dict["mean_luminance"]),
             "lidar_depth_cm": float(payload_dict["lidar_depth_cm"]),
@@ -140,6 +177,8 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
             "surface_area_sqm": float(payload_dict["surface_area_sqm"]),
             "traffic_pcu": int(payload_dict["traffic_pcu"]),
             "dist_hospital_km": float(payload_dict["dist_hospital_km"]),
+            "school_proximity_km": school_km,
+            "nearest_school_name": payload_dict.get("nearest_school_name", school_info["name"]),
             "speed_kmh": float(payload_dict["speed_kmh"]),
             "data_source": payload_dict.get("data_source", "MULTIMODAL"),
             "damage_class": payload_dict.get("damage_class", "D40"),
@@ -149,7 +188,8 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
             "image_url": img_url,
             "bbox": payload_dict.get("bbox", [180.0, 260.0, 420.0, 480.0]),
             "road_name": payload_dict.get("road_name", "Western Express Highway Corridor"),
-            "road_class": payload_dict.get("road_class", "HIGH_TRAFFIC_CORRIDOR"),
+            "road_class": road_cls,
+            "road_class_weight": encode_road_class(road_cls),
             "detector": ACTIVE_DETECTOR,
             "processed_telemetry": depth_res,
             "topsis_score": 0.0,
@@ -195,12 +235,24 @@ def _load_srmd_records_into_store() -> bool:
                     depth_eval["calculated_volume_liters"] = r["visual"]["calculated_volume_liters"]
                 depth_eval["dynamic_impact_confirmed"] = r["accelerometer"]["dynamic_impact_triggered"]
 
+                lat = float(r["location"]["latitude"])
+                lon = float(r["location"]["longitude"])
+                road_cls = r["location"].get("road_class", "HIGH_TRAFFIC_CORRIDOR")
+                infra_block = r.get("infrastructure", {})
+                if "school_proximity_km" in infra_block:
+                    school_km = float(infra_block["school_proximity_km"])
+                    school_name = infra_block.get("nearest_school_name", "")
+                else:
+                    s_info, s_geo = _infra_lookup.find_nearest_school(lat, lon)
+                    school_km = round(max(0.05, s_geo * _infra_lookup.tortuosity_factor), 2)
+                    school_name = s_info["name"]
+
                 rec = {
                     "id": r["event_id"],
                     "timestamp": r.get("provenance", {}).get("generation_timestamp", datetime.now(timezone.utc).isoformat()),
                     "vehicle_id": r.get("vehicle", {}).get("vehicle_id", "INSPECTION_FLEET_01"),
-                    "latitude": float(r["location"]["latitude"]),
-                    "longitude": float(r["location"]["longitude"]),
+                    "latitude": lat,
+                    "longitude": lon,
                     "rain_detected": bool(r["environment"]["rain_detected"]),
                     "mean_luminance": float(r["environment"]["luminance_lux"]),
                     "lidar_depth_cm": float(r["lidar"]["depth_cm"]),
@@ -208,7 +260,9 @@ def _load_srmd_records_into_store() -> bool:
                     "z_accel_g": float(r["accelerometer"]["z_accel_g"]),
                     "surface_area_sqm": float(r["visual"]["surface_area_sqm"]),
                     "traffic_pcu": int(r["traffic"]["traffic_pcu"]),
-                    "dist_hospital_km": float(r["infrastructure"]["dist_hospital_km"]),
+                    "dist_hospital_km": float(infra_block["dist_hospital_km"]),
+                    "school_proximity_km": school_km,
+                    "nearest_school_name": school_name,
                     "speed_kmh": float(r.get("vehicle", {}).get("speed_kmh", 40.0)),
                     "data_source": "MULTIMODAL",
                     "damage_class": r["source"].get("annotation_class", "D40"),
@@ -218,7 +272,8 @@ def _load_srmd_records_into_store() -> bool:
                     "image_url": f"/api/v1/images/{img_file}",
                     "bbox": r["visual"].get("bbox", []),
                     "road_name": r["location"].get("road_name", "Western Express Highway"),
-                    "road_class": r["location"].get("road_class", "HIGH_TRAFFIC_CORRIDOR"),
+                    "road_class": road_cls,
+                    "road_class_weight": encode_road_class(road_cls),
                     "detector": ACTIVE_DETECTOR,
                     "processed_telemetry": depth_eval,
                     "topsis_score": 0.0,
@@ -499,4 +554,214 @@ async def get_dataset_explorer():
         }
 
 
+@app.get("/api/v1/preprocess/preview/{image_name}")
+async def get_preprocess_preview(
+    image_name: str,
+    clip_limit: float = Query(2.0, ge=0.1, le=20.0),
+    tile_grid_size: int = Query(8, ge=1, le=64)
+):
+    """
+    Returns original and CLAHE-enhanced RGB images (as base64 data URIs and metadata)
+    so the UI can display an interactive before/after contrast slider.
+    """
+    safe_name = os.path.basename(image_name)
+    sample_dir = os.path.join(os.path.dirname(__file__), "data", "samples", "images")
+    candidates = [
+        os.path.join(sample_dir, safe_name),
+        os.path.join(sample_dir, f"{safe_name}.jpg") if not safe_name.lower().endswith(".jpg") else os.path.join(sample_dir, safe_name)
+    ]
+    resolved_path = None
+    for c in candidates:
+        if os.path.exists(c) and os.path.isfile(c):
+            resolved_path = c
+            break
+
+    if resolved_path is None:
+        raise HTTPException(status_code=404, detail=f"Inspection image '{image_name}' not found.")
+
+    orig_rgb, (w, h) = load_image(resolved_path)
+    tile_grid = (int(tile_grid_size), int(tile_grid_size))
+    clahe_rgb = apply_clahe(orig_rgb, clip_limit=float(clip_limit), tile_grid=tile_grid)
+
+    orig_b64 = encode_image_base64(orig_rgb, fmt="JPEG", quality=90)
+    clahe_b64 = encode_image_base64(clahe_rgb, fmt="JPEG", quality=90)
+    resolved_filename = os.path.basename(resolved_path)
+
+    return {
+        "status": "success",
+        "image_name": resolved_filename,
+        "width": w,
+        "height": h,
+        "clip_limit": float(clip_limit),
+        "tile_grid": list(tile_grid),
+        "backend": "opencv_lab_clahe" if HAS_CV2 else "numpy_pil_fallback",
+        "original_url": f"/api/v1/images/{resolved_filename}",
+        "original_image": orig_b64,
+        "clahe_image": clahe_b64,
+        "original_image_base64": orig_b64,
+        "clahe_image_base64": clahe_b64,
+        "metrics": {
+            "original_mean_luminance": round(float(np.mean(orig_rgb)), 2),
+            "clahe_mean_luminance": round(float(np.mean(clahe_rgb)), 2),
+            "original_contrast_std": round(float(np.std(orig_rgb)), 2),
+            "clahe_contrast_std": round(float(np.std(clahe_rgb)), 2)
+        }
+    }
+
+
+def _execute_prioritization_query(
+    method: str,
+    profile_info: Dict[str, Any],
+    v: float = 0.5
+) -> Dict[str, Any]:
+    method_norm = (method or "both").strip().lower()
+    if method_norm not in ("topsis", "vikor", "both"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid method '{method}'. Must be 'topsis', 'vikor', or 'both'."
+        )
+
+    if not srmd_loaded and os.path.exists(srmd_dataset_file):
+        _load_srmd_records_into_store()
+
+    with _store_lock:
+        items = list(telemetry_store)
+
+    w = np.asarray(profile_info["weights"], dtype=float)
+    engine = MCDMPrioritizationEngine(weights=w, use_calibrated_thresholds=True)
+
+    if not items:
+        return {
+            "status": "success",
+            "method": method_norm,
+            "profile": profile_info["profile"],
+            "weights": w.tolist(),
+            "fuzzy_bwm": profile_info,
+            "spearman_correlation": 1.0,
+            "total": 0,
+            "results": []
+        }
+
+    if w.shape[0] == 4:
+        matrix = np.array([
+            [
+                float(it["processed_telemetry"]["calculated_volume_liters"]),
+                float(it["traffic_pcu"]),
+                float(it["dist_hospital_km"]),
+                float(it["speed_kmh"])
+            ]
+            for it in items
+        ])
+    else:
+        matrix = np.array([_build_record_6criteria_row(it) for it in items])
+
+    all_res = engine.compute_all(matrix, v=v, weights=w, calibrated=True)
+
+    ranked_rows = []
+    for idx, it in enumerate(items):
+        t_score = float(all_res["topsis_scores"][idx])
+        t_rank = int(all_res["topsis_ranks"][idx])
+        v_s = float(all_res["vikor_S"][idx])
+        v_r = float(all_res["vikor_R"][idx])
+        v_q = float(all_res["vikor_Q"][idx])
+        v_rank = int(all_res["vikor_ranks"][idx])
+        primary_rank = v_rank if method_norm == "vikor" else t_rank
+        primary_score = round(1.0 - v_q, 4) if method_norm == "vikor" else t_score
+
+        row_entry: Dict[str, Any] = {
+            "id": it["id"],
+            "rank": primary_rank,
+            "priority_level": engine.classify_priority(primary_score, calibrated=True),
+            "damage_class": it.get("damage_class", "D40"),
+            "damage_label": it.get("damage_label", "Pothole"),
+            "road_name": it.get("road_name", ""),
+            "road_class": it.get("road_class", "ARTERIAL"),
+            "road_class_weight": encode_road_class(it.get("road_class", "ARTERIAL")),
+            "calculated_volume_liters": float(it["processed_telemetry"]["calculated_volume_liters"]),
+            "traffic_pcu": int(it["traffic_pcu"]),
+            "dist_hospital_km": float(it["dist_hospital_km"]),
+            "speed_kmh": float(it["speed_kmh"]),
+            "school_proximity_km": float(it.get("school_proximity_km", 0.5)),
+            "nearest_school_name": it.get("nearest_school_name", "")
+        }
+        if method_norm in ("topsis", "both"):
+            row_entry["topsis_score"] = t_score
+            row_entry["topsis_rank"] = t_rank
+        if method_norm in ("vikor", "both"):
+            row_entry["vikor_S"] = v_s
+            row_entry["vikor_R"] = v_r
+            row_entry["vikor_Q"] = v_q
+            row_entry["vikor_rank"] = v_rank
+        ranked_rows.append(row_entry)
+
+    ranked_rows.sort(key=lambda r: r["rank"])
+
+    compromise_ids = [items[i]["id"] for i in all_res["vikor"]["compromise_solution"]]
+    return {
+        "status": "success",
+        "method": method_norm,
+        "profile": profile_info["profile"],
+        "weights": np.round(w, 4).tolist(),
+        "fuzzy_bwm": {
+            "profile": profile_info["profile"],
+            "label": profile_info["label"],
+            "fuzzy_weights": [list(fw) for fw in profile_info["fuzzy_weights"]],
+            "ksi_star": profile_info["ksi_star"],
+            "consistency_index": profile_info["consistency_index"],
+            "consistency_ratio": profile_info["consistency_ratio"],
+            "best_idx": profile_info["best_idx"],
+            "worst_idx": profile_info["worst_idx"]
+        },
+        "criteria": MCDMPrioritizationEngine.get_criteria_specs(extended=(w.shape[0] == 6)),
+        "priority_thresholds": engine.calibrated_thresholds,
+        "spearman_correlation": all_res["spearman_correlation"],
+        "vikor_checks": {
+            "v": all_res["vikor"]["v"],
+            "DQ": all_res["vikor"]["DQ"],
+            "q_gap": all_res["vikor"]["q_gap"],
+            "acceptable_advantage": all_res["vikor"]["acceptable_advantage"],
+            "acceptable_stability": all_res["vikor"]["acceptable_stability"],
+            "compromise_solution": compromise_ids
+        },
+        "total": len(ranked_rows),
+        "results": ranked_rows
+    }
+
+
+@app.get("/api/v1/prioritization")
+async def get_prioritization(
+    method: str = Query("both", description="Ranking method: 'topsis', 'vikor', or 'both'"),
+    profile: str = Query("safety-first", description="Fuzzy BWM weight profile: 'safety-first', 'traffic-first', or 'equity-first'"),
+    v: float = Query(0.5, ge=0.0, le=1.0, description="VIKOR group utility weight v")
+):
+    """
+    Computes multi-criteria prioritization rankings over active road defects using
+    TOPSIS, VIKOR, or both with Fuzzy BWM derived criteria weights.
+    """
+    try:
+        prof = get_fuzzy_bwm_profile(profile=profile)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return _execute_prioritization_query(method=method, profile_info=prof, v=v)
+
+
+@app.post("/api/v1/prioritization")
+@app.post("/api/v1/prioritization/custom")
+async def post_custom_prioritization(req: CustomPrioritizationRequest):
+    """
+    Computes multi-criteria prioritization rankings using custom crisp weights or
+    custom Fuzzy BWM Best-to-Others / Others-to-Worst comparison vectors.
+    """
+    try:
+        prof = get_fuzzy_bwm_profile(
+            profile=req.profile,
+            custom_weights=req.weights,
+            best_to_others=req.best_to_others,
+            others_to_worst=req.others_to_worst,
+            best_idx=req.best_idx,
+            worst_idx=req.worst_idx
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return _execute_prioritization_query(method=req.method, profile_info=prof, v=req.v)
 

@@ -292,6 +292,7 @@ class SRMDRecordBuilder:
                 "road_segment_id": road_segment_id,
                 "road_name": road_name,
                 "road_class": road_class,
+                "road_class_weight": {"LOCAL": 1, "COLLECTOR": 2, "ARTERIAL": 3, "HIGH_TRAFFIC_CORRIDOR": 4}.get(road_class, 3),
                 "chainage_km": loc_res.get("chainage_km", 0.0),
                 "location_mode": loc_res["location_mode"],
                 "location_source": loc_res["location_source"],
@@ -331,6 +332,7 @@ class SRMDRecordBuilder:
             },
             "traffic": {
                 "road_class": road_class,
+                "road_class_weight": {"LOCAL": 1, "COLLECTOR": 2, "ARTERIAL": 3, "HIGH_TRAFFIC_CORRIDOR": 4}.get(road_class, 3),
                 "road_class_name": traffic_res.get("road_class_name", road_class),
                 "traffic_pcu": traffic_pcu,
                 "pcu": traffic_pcu,
@@ -352,9 +354,17 @@ class SRMDRecordBuilder:
                 "hospital_tier": infra_res["hospital_tier"],
                 "district": infra_res["district"],
                 "is_emergency_corridor": infra_res["is_emergency_corridor"],
+                "school_proximity_km": infra_res["school_proximity_km"],
+                "dist_school_km": infra_res["dist_school_km"],
+                "school_geodesic_distance_km": infra_res["school_geodesic_distance_km"],
+                "nearest_school_name": infra_res["nearest_school_name"],
+                "nearest_school_lat": infra_res["nearest_school_lat"],
+                "nearest_school_lon": infra_res["nearest_school_lon"],
+                "is_school_zone": infra_res["is_school_zone"],
                 "infrastructure_risk_score": risk_res["infrastructure_risk_score"],
                 "priority_level": risk_res["priority_level"],
                 "hospital_source": "synthetic",
+                "school_source": "synthetic",
                 "location_source": "synthetic",
                 "generation_method": "gis_geodesic_nearest_neighbor",
                 "source": "synthetic"
@@ -392,6 +402,7 @@ def srmd_to_telemetry_payload(record: Dict[str, Any]) -> Dict[str, Any]:
     Converts an SRMD multimodal record into the flat TelemetryPayload format
     expected by the FastAPI /api/v1/telemetry/ingest endpoint.
     """
+    road_cls = record["location"].get("road_class", "ARTERIAL")
     return {
         "vehicle_id": record["vehicle"]["vehicle_id"],
         "latitude": record["location"]["latitude"],
@@ -404,6 +415,9 @@ def srmd_to_telemetry_payload(record: Dict[str, Any]) -> Dict[str, Any]:
         "surface_area_sqm": record["visual"]["surface_area_sqm"],
         "traffic_pcu": record["traffic"]["pcu"],
         "dist_hospital_km": record["infrastructure"]["hospital_distance_km"],
+        "school_proximity_km": record["infrastructure"].get("school_proximity_km", 0.5),
+        "road_class": road_cls,
+        "road_name": record["location"].get("road_name", "Western Express Highway"),
         "speed_kmh": record["vehicle"]["speed_kmh"],
         # Extended multimodal fields
         "event_id": record["event_id"],

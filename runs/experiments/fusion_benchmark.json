@@ -10,8 +10,11 @@
       "impact_confirmation_rate": 0.0,
       "sensor_disagreement_rate": 1.0,
       "topsis_priority_stability": 0.3714,
+      "vikor_priority_stability": 0.3714,
+      "topsis_vikor_spearman_rho": 1.0,
       "mean_topsis_score": 0.3766,
-      "critical_priority_count": 1
+      "mean_vikor_q": 0.6233,
+      "critical_priority_count": 2
     },
     "B": {
       "name": "EXPERIMENT B: Vision + Accelerometer",
@@ -22,8 +25,11 @@
       "impact_confirmation_rate": 0.1667,
       "sensor_disagreement_rate": 0.8333,
       "topsis_priority_stability": 0.6571,
-      "mean_topsis_score": 0.4021,
-      "critical_priority_count": 1
+      "vikor_priority_stability": 0.7714,
+      "topsis_vikor_spearman_rho": 1.0,
+      "mean_topsis_score": 0.4053,
+      "mean_vikor_q": 0.5865,
+      "critical_priority_count": 2
     },
     "C": {
       "name": "EXPERIMENT C: Vision + LiDAR",
@@ -34,7 +40,10 @@
       "impact_confirmation_rate": 0.0,
       "sensor_disagreement_rate": 1.0,
       "topsis_priority_stability": 0.2571,
+      "vikor_priority_stability": 0.7714,
+      "topsis_vikor_spearman_rho": 1.0,
       "mean_topsis_score": 0.3622,
+      "mean_vikor_q": 0.6378,
       "critical_priority_count": 2
     },
     "D": {
@@ -46,28 +55,51 @@
       "impact_confirmation_rate": 0.1667,
       "sensor_disagreement_rate": 1.0,
       "topsis_priority_stability": 0.9429,
-      "mean_topsis_score": 0.3555,
+      "vikor_priority_stability": 0.6,
+      "topsis_vikor_spearman_rho": 1.0,
+      "mean_topsis_score": 0.3576,
+      "mean_vikor_q": 0.6224,
       "critical_priority_count": 1
     },
     "E": {
       "name": "EXPERIMENT E: Full Multimodal System",
-      "description": "Physical sensor suite + environmental switching + municipal GIS & TOPSIS prioritization.",
+      "description": "Physical sensor suite + environmental switching + municipal GIS (hospital, school, road class) & Fuzzy BWM TOPSIS/VIKOR prioritization.",
       "total_defects_evaluated": 6,
       "detection_confirmation_rate": 0.6667,
       "unconfirmed_superficial_rate": 0.3333,
       "impact_confirmation_rate": 0.1667,
       "sensor_disagreement_rate": 1.0,
       "topsis_priority_stability": 1.0,
-      "mean_topsis_score": 0.422,
-      "critical_priority_count": 0
+      "vikor_priority_stability": 1.0,
+      "topsis_vikor_spearman_rho": 0.6571,
+      "mean_topsis_score": 0.456,
+      "mean_vikor_q": 0.5517,
+      "critical_priority_count": 1
     }
   },
-  "benchmark_date": "2026-09-24",
-  "topsis_weights": [
-    0.35,
-    0.25,
-    0.25,
-    0.15
+  "benchmark_date": "2026-10-11",
+  "mcdm_profile": "safety-first",
+  "criteria": [
+    "calculated_volume_liters",
+    "traffic_pcu",
+    "dist_hospital_km",
+    "speed_kmh",
+    "school_proximity_km",
+    "road_class"
   ],
+  "topsis_weights": [
+    0.2798,
+    0.1346,
+    0.2418,
+    0.1346,
+    0.1346,
+    0.0746
+  ],
+  "fuzzy_bwm_consistency_ratio": 0.0305,
+  "priority_thresholds": {
+    "critical": 0.57,
+    "high": 0.45,
+    "medium": 0.35
+  },
   "impact_threshold_g": 1.5
 }
