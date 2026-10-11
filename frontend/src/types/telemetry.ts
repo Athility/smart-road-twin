@@ -2,6 +2,8 @@ export type PriorityLevel = 'Critical' | 'High' | 'Medium' | 'Low';
 
 export type DataSourceType = 'RDD2022' | 'SYNTHETIC SENSOR' | 'SYNTHETIC GIS' | 'MULTIMODAL';
 
+export type DetectorType = 'ground-truth lookup' | 'opencv-contour' | 'yolov8' | string;
+
 export interface ProcessedTelemetry {
   detection_modality: 'optical_lidar' | 'sonar_submerged_acoustic' | string;
   is_submerged: boolean;
@@ -30,6 +32,7 @@ export interface TelemetryRecord {
   priority_level: PriorityLevel;
   // Multimodal provenance & CV inspection attributes
   data_source?: DataSourceType;
+  detector?: DetectorType;
   damage_class?: string;
   damage_label?: string;
   confidence?: number;
@@ -56,17 +59,20 @@ export interface TelemetrySummary {
   submerged_defects: number;
   average_luminance: number;
   priority_counts: PriorityCounts;
+  detector?: DetectorType;
   latest_update: string | null;
 }
 
 export interface TelemetryResponse {
   status: string;
+  detector?: DetectorType;
   total: number;
   summary: TelemetrySummary;
   data: TelemetryRecord[];
 }
 
 export interface DatasetExplorerStats {
+  detector?: DetectorType;
   total_records: number;
   d00_count: number;
   d10_count: number;
@@ -83,4 +89,5 @@ export interface DatasetExplorerStats {
   priority_distribution: PriorityCounts;
   records?: TelemetryRecord[];
 }
+
 

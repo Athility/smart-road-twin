@@ -75,6 +75,14 @@ class RDD2022Detector(RoadDamageDetector):
         """Allows dynamic switching of model adapters at runtime."""
         self.adapter = adapter
 
+    def get_detector_slug(self) -> str:
+        """Returns the canonical detector identifier: 'ground-truth lookup' | 'opencv-contour' | 'yolov8'."""
+        if isinstance(self.adapter, UltralyticsYOLOAdapter):
+            return "yolov8"
+        if isinstance(self.adapter, OpenCVContourDetectorAdapter):
+            return "opencv-contour"
+        return "ground-truth lookup"
+
     def compute_perspective_surface_area(
         self,
         bbox: BoundingBox,

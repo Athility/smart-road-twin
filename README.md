@@ -155,8 +155,8 @@ The platform produces the **Smart Road Multimodal Dataset (SRMD)**, provides a r
                        ▼                                  ▼
       ┌────────────────────────────┐     ┌─────────────────────────────────┐
       │   FastAPI Backend (main.py)│     │  CV Detector (services/cv/)      │
-      │                            │     │  RDD2022Detector (YOLOv8/mock)   │
-      │  /api/v1/telemetry/ingest  │     │  Damage class + bbox + conf      │
+      │                            │     │  RDD2022Detector                 │
+      │  /api/v1/telemetry/ingest  │     │  (default: ground-truth lookup) │
       │  /api/v1/dataset/explorer  │     └──────────────┬──────────────────┘
       │  /api/v1/images/{name}     │                    │
       │                            │     ┌──────────────▼──────────────────┐
@@ -178,6 +178,8 @@ The platform produces the **Smart Road Multimodal Dataset (SRMD)**, provides a r
       │  └─────────────────────────┘   └───────────────────────────────┘ │
       └──────────────────────────────────────────────────────────────────┘
 ```
+
+> **Visual Detection Mode Note:** Visual road damage detection currently uses **ground-truth lookup** (`detector: "ground-truth lookup"`) against the authentic RDD2022 Pascal VOC annotations by default when `ultralytics` YOLOv8 weights are not loaded (falling back to `"opencv-contour"` for unindexed images). Furthermore, when `DamageModelTrainer` runs in simulated mode (without `ultralytics` installed), it writes JSON checkpoint metadata to `best.pt.simulated.json` and `last.pt.simulated.json` rather than `.pt` files so simulated artifacts are never mistaken for PyTorch weights. Every backend API response (`/api/v1/telemetry`, `/api/v1/telemetry/ingest`, `/api/v1/dataset/explorer`, `/health`) explicitly includes `"detector": "ground-truth lookup" | "opencv-contour" | "yolov8"`.
 
 ---
 

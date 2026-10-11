@@ -433,6 +433,7 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         icon={<Activity style={{ width: 13, height: 13 }} />}
         label="Defect Class"
         value={`${damageClassCode} — ${damageClassName}`}
+        subvalue={`detector: ${record.detector || 'ground-truth lookup'}`}
         valueColor="#60A5FA"
         mono
       />
@@ -441,7 +442,9 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
       <SectionBadge number={3} title="Detection Confidence" />
       <div style={{ padding: '6px 0 10px', borderBottom: '1px solid #1E2435' }}>
         <div className="flex justify-between items-center" style={{ marginBottom: 4 }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8' }}>Model Probability</span>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8' }}>
+            Detection Source ({record.detector || 'ground-truth lookup'})
+          </span>
           <span
             style={{
               fontSize: '13px',

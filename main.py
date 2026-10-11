@@ -62,6 +62,15 @@ telemetry_store: List[Dict[str, Any]] = []
 _store_lock = threading.Lock()
 _pothole_counter = 0
 
+def get_active_detector_label() -> str:
+    try:
+        from services.cv.rdd2022_detector import RDD2022Detector
+        return RDD2022Detector().get_detector_slug()
+    except Exception:
+        return "ground-truth lookup"
+
+ACTIVE_DETECTOR = get_active_detector_label()
+
 def recompute_topsis_for_all():
     if not telemetry_store:
         return
@@ -141,6 +150,7 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
             "bbox": payload_dict.get("bbox", [180.0, 260.0, 420.0, 480.0]),
             "road_name": payload_dict.get("road_name", "Western Express Highway Corridor"),
             "road_class": payload_dict.get("road_class", "HIGH_TRAFFIC_CORRIDOR"),
+            "detector": ACTIVE_DETECTOR,
             "processed_telemetry": depth_res,
             "topsis_score": 0.0,
             "priority_level": "Low"
@@ -201,6 +211,7 @@ if os.path.exists(srmd_dataset_file):
                 "bbox": r["visual"].get("bbox", []),
                 "road_name": r["location"].get("road_name", "Western Express Highway"),
                 "road_class": r["location"].get("road_class", "HIGH_TRAFFIC_CORRIDOR"),
+                "detector": ACTIVE_DETECTOR,
                 "processed_telemetry": depth_eval,
                 "topsis_score": 0.0,
                 "priority_level": "Low"
@@ -317,6 +328,7 @@ def calculate_summary():
             "submerged_defects": submerged_count,
             "average_luminance": avg_luminance,
             "priority_counts": priority_counts,
+            "detector": ACTIVE_DETECTOR,
             "latest_update": latest_item["timestamp"] if latest_item else None
         }
 
@@ -325,6 +337,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "Smart Digital Twin API",
+        "detector": ACTIVE_DETECTOR,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
@@ -333,6 +346,7 @@ async def ingest_telemetry(payload: TelemetryPayload):
     record = process_and_store_telemetry(payload.model_dump())
     return {
         "status": "success",
+        "detector": ACTIVE_DETECTOR,
         "record": record,
         "processed_telemetry": record["processed_telemetry"],
         "topsis_score": record["topsis_score"],
@@ -344,6 +358,7 @@ async def ingest_telemetry(payload: TelemetryPayload):
 async def get_telemetry():
     return {
         "status": "success",
+        "detector": ACTIVE_DETECTOR,
         "total": len(telemetry_store),
         "summary": calculate_summary(),
         "data": telemetry_store
@@ -427,6 +442,7 @@ async def get_dataset_explorer():
 
             return {
                 "status": "success",
+                "detector": ACTIVE_DETECTOR,
                 "total_records": N,
                 "d00_count": d00,
                 "d10_count": d10,
@@ -455,6 +471,7 @@ async def get_dataset_explorer():
 
     return {
         "status": "success",
+        "detector": ACTIVE_DETECTOR,
         "total_records": len(telemetry_store),
         "d00_count": sum(1 for item in telemetry_store if item.get("damage_class") == "D00"),
         "d10_count": sum(1 for item in telemetry_store if item.get("damage_class") == "D10"),

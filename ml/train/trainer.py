@@ -220,10 +220,10 @@ class DamageModelTrainer:
             "data_source": "RDD2022_India"
         }
 
-        best_pt = weights_dir / "best.pt"
-        last_pt = weights_dir / "last.pt"
+        best_pt = weights_dir / "best.pt.simulated.json"
+        last_pt = weights_dir / "last.pt.simulated.json"
 
-        # Write checkpoint file with JSON payload
+        # Write simulated checkpoint metadata file with JSON payload
         with open(best_pt, "w", encoding="utf-8") as f:
             json.dump(checkpoint_data, f, indent=2)
 

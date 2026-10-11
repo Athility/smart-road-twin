@@ -16,6 +16,7 @@ export function getInspectionImageUrl(imageUrl?: string, imageId?: string): stri
 }
 
 export const FALLBACK_EXPLORER_STATS: DatasetExplorerStats = {
+  detector: 'ground-truth lookup',
   total_records: 6,
   d00_count: 1,
   d10_count: 1,
@@ -39,8 +40,10 @@ export const FALLBACK_EXPLORER_STATS: DatasetExplorerStats = {
 
 export const FALLBACK_DATA: TelemetryResponse = {
   status: 'fallback',
+  detector: 'ground-truth lookup',
   total: 4,
   summary: {
+    detector: 'ground-truth lookup',
     total_defects: 4,
     total_volume_liters: 224.24,
     average_volume_liters: 56.06,
@@ -73,6 +76,7 @@ export const FALLBACK_DATA: TelemetryResponse = {
       dist_hospital_km: 2.4,
       speed_kmh: 41.7,
       data_source: 'MULTIMODAL',
+      detector: 'ground-truth lookup',
       damage_class: 'D40',
       damage_label: 'Pothole',
       confidence: 0.96,
@@ -107,6 +111,7 @@ export const FALLBACK_DATA: TelemetryResponse = {
       dist_hospital_km: 1.31,
       speed_kmh: 36.5,
       data_source: 'MULTIMODAL',
+      detector: 'ground-truth lookup',
       damage_class: 'D20',
       damage_label: 'Alligator Crack',
       confidence: 0.91,
@@ -141,6 +146,7 @@ export const FALLBACK_DATA: TelemetryResponse = {
       dist_hospital_km: 0.88,
       speed_kmh: 50.0,
       data_source: 'MULTIMODAL',
+      detector: 'ground-truth lookup',
       damage_class: 'D00',
       damage_label: 'Longitudinal Crack',
       confidence: 0.88,
@@ -175,6 +181,7 @@ export const FALLBACK_DATA: TelemetryResponse = {
       dist_hospital_km: 0.96,
       speed_kmh: 55.0,
       data_source: 'MULTIMODAL',
+      detector: 'ground-truth lookup',
       damage_class: 'D10',
       damage_label: 'Transverse Crack',
       confidence: 0.84,

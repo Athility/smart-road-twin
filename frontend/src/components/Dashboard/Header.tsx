@@ -106,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <p style={{ fontSize: '10px', color: '#4D5A72', marginTop: 1 }}>
-              IoT telemetry · AI depth estimation · TOPSIS prioritization
+              Detector: ground-truth lookup · AI depth estimation · TOPSIS prioritization
             </p>
           </div>
         </div>
