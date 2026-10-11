@@ -273,6 +273,36 @@ class TestAPIAndStore(unittest.TestCase):
         self.assertIn("priority_counts", summary)
         self.assertGreaterEqual(summary["total_defects"], 4)
 
+    def test_seed_initial_data_sonar_volume_not_overwritten(self):
+        srmd_file = PROJECT_ROOT / "data" / "processed" / "srmd" / "srmd_records.json"
+        self.assertTrue(srmd_file.exists())
+        srmd_by_id = {
+            r["event_id"]: r
+            for r in json.loads(srmd_file.read_text(encoding="utf-8"))
+        }
+        sonar_records = [
+            rec for rec in main.telemetry_store
+            if rec.get("id") in srmd_by_id
+            and rec["processed_telemetry"]["detection_modality"] == "sonar_submerged_acoustic"
+        ]
+        self.assertGreater(len(sonar_records), 0, "Expected at least one sonar-mode record in seeded store")
+        for rec in sonar_records:
+            raw_srmd = srmd_by_id[rec["id"]]
+            sonar_depth = max(0.0, float(rec["sonar_depth_cm"]) - 30.0)
+            area_sqm = float(rec["surface_area_sqm"])
+            expected_sonar_vol = round((0.5 * (area_sqm * 10000.0) * sonar_depth) / 1000.0, 2)
+            self.assertAlmostEqual(
+                rec["processed_telemetry"]["calculated_volume_liters"],
+                expected_sonar_vol,
+                places=2
+            )
+            if raw_srmd["sonar"]["depth_cm"] != raw_srmd["lidar"]["depth_cm"]:
+                self.assertNotEqual(
+                    rec["processed_telemetry"]["calculated_volume_liters"],
+                    raw_srmd["visual"]["calculated_volume_liters"]
+                )
+
+
 
 class TestSmartRoadMultimodalDataset(unittest.TestCase):
     def setUp(self):

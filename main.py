@@ -171,10 +171,10 @@ if os.path.exists(srmd_dataset_file):
                 z_accel_g=r["accelerometer"]["z_accel_g"],
                 surface_area_sqm=r["visual"]["surface_area_sqm"]
             )
-            # Override calculated volume with exact SRMD modeled volume
-            depth_eval["calculated_volume_liters"] = r["visual"]["calculated_volume_liters"]
             depth_eval["estimated_depth_cm"] = r["environment"]["selected_depth_cm"]
             depth_eval["detection_modality"] = r["environment"]["preferred_modality"]
+            if depth_eval["detection_modality"] != "sonar_submerged_acoustic":
+                depth_eval["calculated_volume_liters"] = r["visual"]["calculated_volume_liters"]
             depth_eval["dynamic_impact_confirmed"] = r["accelerometer"]["dynamic_impact_triggered"]
 
             rec = {
