@@ -1,4 +1,6 @@
 {
+  "simulated": true,
+  "note": "Loss curve is simulated, not real training",
   "model_architecture": "yolov8n",
   "classes": [
     "D00",
@@ -9,7 +11,7 @@
   "trained_epochs": 5,
   "best_epoch": 5,
   "best_mAP50": 0.4904,
-  "timestamp": 1790251028.7081394,
+  "timestamp": 1791738275.7823744,
   "synthetic_training": false,
   "data_source": "RDD2022_India"
 }

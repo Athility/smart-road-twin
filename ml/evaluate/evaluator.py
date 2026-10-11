@@ -158,13 +158,25 @@ class DamageModelEvaluator:
                 predictions[img_id] = pred_list
 
         # Compute benchmark metrics
-        metrics = evaluate_dataset_metrics(
+        raw_metrics = evaluate_dataset_metrics(
             ground_truths=ground_truths,
             predictions=predictions,
             iou_threshold=self.iou_threshold,
             conf_threshold=self.conf_threshold
         )
 
+        detector_slug = (
+            self.detector.get_detector_slug()
+            if hasattr(self.detector, "get_detector_slug")
+            else "ground-truth lookup"
+        )
+        metrics: Dict[str, Any] = {
+            "detector": detector_slug,
+        }
+        if detector_slug == "ground-truth lookup":
+            metrics["note"] = "Evaluated with ground-truth lookup detector; metrics are NOT model performance"
+
+        metrics.update(raw_metrics)
         metrics["split"] = split_name
         metrics["total_images_evaluated"] = len(ground_truths)
         metrics["total_ground_truth_boxes"] = sum(len(b) for b in ground_truths.values())

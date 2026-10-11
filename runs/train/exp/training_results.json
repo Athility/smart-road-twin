@@ -1,4 +1,6 @@
 {
+  "simulated": true,
+  "note": "Loss curve is simulated, not real training",
   "model": "yolov8n",
   "epochs_trained": 5,
   "best_epoch": 5,

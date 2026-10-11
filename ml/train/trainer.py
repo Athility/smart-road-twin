@@ -198,18 +198,27 @@ class DamageModelTrainer:
             history.append(epoch_record)
 
         # Write training summary JSON
+        summary_payload = {
+            "simulated": True,
+            "note": "Loss curve is simulated, not real training",
+            "model": self.architecture,
+            "epochs_trained": num_epochs,
+            "best_epoch": best_epoch,
+            "best_mAP50": best_map50,
+            "history": history
+        }
+        summary_file = out_base / "training_summary.json"
+        with open(summary_file, "w", encoding="utf-8") as f:
+            json.dump(summary_payload, f, indent=2)
+
         results_file = out_base / "training_results.json"
         with open(results_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "model": self.architecture,
-                "epochs_trained": num_epochs,
-                "best_epoch": best_epoch,
-                "best_mAP50": best_map50,
-                "history": history
-            }, f, indent=2)
+            json.dump(summary_payload, f, indent=2)
 
         # Write simulated weight metadata files
         checkpoint_data = {
+            "simulated": True,
+            "note": "Loss curve is simulated, not real training",
             "model_architecture": self.architecture,
             "classes": ["D00", "D10", "D20", "D40"],
             "trained_epochs": num_epochs,
@@ -237,6 +246,8 @@ class DamageModelTrainer:
         return {
             "status": "completed",
             "engine": "simulated_reproducible",
+            "simulated": True,
+            "note": "Loss curve is simulated, not real training",
             "epochs": num_epochs,
             "architecture": self.architecture,
             "best_epoch": best_epoch,
@@ -246,5 +257,6 @@ class DamageModelTrainer:
             "weights_dir": str(weights_dir),
             "best_weights": str(best_pt),
             "last_weights": str(last_pt),
+            "summary_path": str(summary_file),
             "results_path": str(results_file)
         }
