@@ -1198,6 +1198,67 @@ class TestTrainingAndEvaluationPipeline(unittest.TestCase):
         self.assertIn("recall", eval_res)
         self.assertIn("mAP50", eval_res)
         self.assertIn("confusion_matrix", eval_res)
+        self.assertLessEqual(eval_res["mAP50_95"], eval_res["mAP50"])
+
+    def test_map_perfect_detection_and_monotonicity(self):
+        from ml.evaluate.metrics import evaluate_dataset_metrics
+
+        # 1. Perfect detection across all 4 classes gives 1.0 for mAP50, mAP50_95, and per-class ap50
+        perfect_gts = {
+            "img1": [
+                {"class_id": "D00", "bbox": [10, 10, 100, 100]},
+                {"class_id": "D10", "bbox": [120, 10, 220, 100]},
+            ],
+            "img2": [
+                {"class_id": "D20", "bbox": [10, 120, 150, 250]},
+                {"class_id": "D40", "bbox": [200, 200, 350, 350]},
+            ],
+        }
+        perfect_preds = {
+            "img1": [
+                {"class_id": "D00", "confidence": 0.99, "bbox": [10, 10, 100, 100]},
+                {"class_id": "D10", "confidence": 0.95, "bbox": [120, 10, 220, 100]},
+            ],
+            "img2": [
+                {"class_id": "D20", "confidence": 0.92, "bbox": [10, 120, 150, 250]},
+                {"class_id": "D40", "confidence": 0.98, "bbox": [200, 200, 350, 350]},
+            ],
+        }
+        res_perfect = evaluate_dataset_metrics(perfect_gts, perfect_preds)
+        self.assertEqual(res_perfect["mAP50"], 1.0)
+        self.assertEqual(res_perfect["mAP50_95"], 1.0)
+        for cls_id in ["D00", "D10", "D20", "D40"]:
+            self.assertEqual(res_perfect["class_metrics"][cls_id]["ap50"], 1.0)
+
+        # 2. Imperfect box overlap (IoU = 0.81) passes at 0.50..0.80 (7 thresholds) and fails at 0.85..0.95 (3 thresholds)
+        partial_gts = {"img1": [{"class_id": "D40", "bbox": [0, 0, 10, 10]}]}
+        partial_preds = {"img1": [{"class_id": "D40", "confidence": 0.90, "bbox": [1, 1, 10, 10]}]}
+        res_partial = evaluate_dataset_metrics(partial_gts, partial_preds)
+        self.assertEqual(res_partial["mAP50"], 1.0)
+        self.assertAlmostEqual(res_partial["mAP50_95"], 0.7, places=4)
+        self.assertLessEqual(res_partial["mAP50_95"], res_partial["mAP50"])
+
+        # 3. Verify per-class ap50 comes from 101-point PR curve, NOT prec * rec
+        # 2 GT boxes: 1 TP (conf=0.95) + 1 FP (conf=0.40) -> prec=0.5, rec=0.5 (prec*rec = 0.25), PR-curve AP = 51/101 = 0.505
+        pr_gts = {
+            "img1": [
+                {"class_id": "D40", "bbox": [0, 0, 10, 10]},
+                {"class_id": "D40", "bbox": [50, 50, 60, 60]},
+            ]
+        }
+        pr_preds = {
+            "img1": [
+                {"class_id": "D40", "confidence": 0.95, "bbox": [0, 0, 10, 10]},
+                {"class_id": "D40", "confidence": 0.40, "bbox": [200, 200, 210, 210]},
+            ]
+        }
+        res_pr = evaluate_dataset_metrics(pr_gts, pr_preds)
+        self.assertEqual(res_pr["class_metrics"]["D40"]["precision"], 0.5)
+        self.assertEqual(res_pr["class_metrics"]["D40"]["recall"], 0.5)
+        self.assertAlmostEqual(res_pr["class_metrics"]["D40"]["ap50"], round(51.0 / 101.0, 4), places=4)
+        self.assertNotEqual(res_pr["class_metrics"]["D40"]["ap50"], 0.25)
+        self.assertLessEqual(res_pr["mAP50_95"], res_pr["mAP50"])
+
 
 
 class TestMultimodalDataFusion(unittest.TestCase):

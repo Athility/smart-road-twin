@@ -42,20 +42,122 @@ def compute_iou(box1: List[float], box2: List[float]) -> float:
 
 def compute_ap_from_pr(recalls: np.ndarray, precisions: np.ndarray) -> float:
     """
-    Computes Average Precision (AP) using standard 101-point or all-point trapezoidal interpolation.
+    Computes Average Precision (AP) using standard 101-point interpolation.
     """
+    if len(recalls) == 0 or len(precisions) == 0:
+        return 0.0
+
     # Append boundary points
-    mrec = np.concatenate(([0.0], recalls, [1.0]))
-    mpre = np.concatenate(([0.0], precisions, [0.0]))
+    mrec = np.concatenate(([0.0], np.asarray(recalls, dtype=float), [1.0]))
+    mpre = np.concatenate(([0.0], np.asarray(precisions, dtype=float), [0.0]))
 
     # Compute the precision envelope
     for i in range(mpre.size - 1, 0, -1):
         mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
 
-    # Integrate area under curve
-    i = np.where(mrec[1:] != mrec[:-1])[0]
-    ap = float(np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1]))
+    # 101-point interpolation across recall levels [0.00, 0.01, ..., 1.00]
+    recall_thresholds = np.linspace(0.0, 1.0, 101)
+    inds = np.searchsorted(mrec, recall_thresholds, side="left")
+    ap = float(np.mean(mpre[inds]))
     return ap
+
+
+def _evaluate_at_iou_threshold(
+    ground_truths: Dict[str, List[Dict[str, Any]]],
+    predictions: Dict[str, List[Dict[str, Any]]],
+    iou_th: float,
+    conf_threshold: float
+) -> Tuple[Dict[str, int], Dict[str, int], Dict[str, int], Dict[str, float], np.ndarray]:
+    """
+    Performs greedy confidence-sorted IoU matching at a specific `iou_th` and
+    computes per-class TP/FP/FN counts, 101-point PR-curve AP, and confusion matrix.
+    """
+    num_classes = len(CLASS_LIST)
+    confusion_matrix = np.zeros((num_classes + 1, num_classes + 1), dtype=int)
+
+    tp_counts = {c: 0 for c in CLASS_LIST}
+    fp_counts = {c: 0 for c in CLASS_LIST}
+    fn_counts = {c: 0 for c in CLASS_LIST}
+    gt_totals = {c: 0 for c in CLASS_LIST}
+    class_pred_records: Dict[str, List[Tuple[float, int]]] = {c: [] for c in CLASS_LIST}
+
+    all_image_ids = sorted(set(ground_truths.keys()) | set(predictions.keys()))
+
+    for img_id in all_image_ids:
+        gt_boxes = ground_truths.get(img_id, [])
+        for gt in gt_boxes:
+            gt_cls = gt["class_id"]
+            if gt_cls in gt_totals:
+                gt_totals[gt_cls] += 1
+
+        pred_boxes = [p for p in predictions.get(img_id, []) if p.get("confidence", 1.0) >= conf_threshold]
+        pred_boxes = sorted(pred_boxes, key=lambda x: x.get("confidence", 0.0), reverse=True)
+
+        gt_matched = [False] * len(gt_boxes)
+
+        for pred in pred_boxes:
+            p_cls = pred["class_id"]
+            p_box = pred["bbox"]
+            p_conf = float(pred.get("confidence", 1.0))
+            p_idx = CLASS_TO_IDX.get(p_cls, num_classes)
+
+            best_iou = 0.0
+            best_gt_idx = -1
+
+            for gt_i, gt in enumerate(gt_boxes):
+                if gt_matched[gt_i]:
+                    continue
+                iou = compute_iou(p_box, gt["bbox"])
+                if iou > best_iou:
+                    best_iou = iou
+                    best_gt_idx = gt_i
+
+            if best_iou >= iou_th and best_gt_idx >= 0:
+                gt_cls = gt_boxes[best_gt_idx]["class_id"]
+                gt_idx = CLASS_TO_IDX.get(gt_cls, num_classes)
+
+                if p_cls == gt_cls:
+                    tp_counts[p_cls] += 1
+                    gt_matched[best_gt_idx] = True
+                    confusion_matrix[gt_idx, p_idx] += 1
+                    if p_cls in class_pred_records:
+                        class_pred_records[p_cls].append((p_conf, 1))
+                else:
+                    if p_cls in fp_counts:
+                        fp_counts[p_cls] += 1
+                    confusion_matrix[gt_idx, p_idx] += 1
+                    if p_cls in class_pred_records:
+                        class_pred_records[p_cls].append((p_conf, 0))
+            else:
+                if p_cls in fp_counts:
+                    fp_counts[p_cls] += 1
+                confusion_matrix[num_classes, p_idx] += 1
+                if p_cls in class_pred_records:
+                    class_pred_records[p_cls].append((p_conf, 0))
+
+        for gt_i, matched in enumerate(gt_matched):
+            if not matched:
+                gt_cls = gt_boxes[gt_i]["class_id"]
+                gt_idx = CLASS_TO_IDX.get(gt_cls, num_classes)
+                if gt_cls in fn_counts:
+                    fn_counts[gt_cls] += 1
+                confusion_matrix[gt_idx, num_classes] += 1
+
+    ap_per_class: Dict[str, float] = {}
+    for c in CLASS_LIST:
+        n_gt = gt_totals[c]
+        records = class_pred_records[c]
+        if n_gt == 0 or len(records) == 0:
+            ap_per_class[c] = 0.0
+        else:
+            records_sorted = sorted(records, key=lambda x: x[0], reverse=True)
+            tp_cum = np.cumsum([r[1] for r in records_sorted], dtype=float)
+            fp_cum = np.cumsum([1 - r[1] for r in records_sorted], dtype=float)
+            rec_curve = tp_cum / float(n_gt)
+            prec_curve = tp_cum / np.maximum(tp_cum + fp_cum, 1e-9)
+            ap_per_class[c] = compute_ap_from_pr(rec_curve, prec_curve)
+
+    return tp_counts, fp_counts, fn_counts, ap_per_class, confusion_matrix
 
 
 def evaluate_dataset_metrics(
@@ -73,70 +175,14 @@ def evaluate_dataset_metrics(
         iou_threshold: Match IoU threshold (default 0.50)
         conf_threshold: Prediction confidence filter (default 0.25)
     """
-    num_classes = len(CLASS_LIST)
-    # Confusion matrix: rows = Ground Truth (including background), cols = Predicted (including background)
-    # Indices 0..3: D00..D40; index 4: Background (FN / FP)
-    confusion_matrix = np.zeros((num_classes + 1, num_classes + 1), dtype=int)
+    tp_counts, fp_counts, fn_counts, ap50_per_class, confusion_matrix = _evaluate_at_iou_threshold(
+        ground_truths, predictions, iou_th=iou_threshold, conf_threshold=conf_threshold
+    )
 
-    tp_counts = {c: 0 for c in CLASS_LIST}
-    fp_counts = {c: 0 for c in CLASS_LIST}
-    fn_counts = {c: 0 for c in CLASS_LIST}
-
-    # Match predictions per image
-    all_image_ids = set(ground_truths.keys()) | set(predictions.keys())
-
-    for img_id in all_image_ids:
-        gt_boxes = ground_truths.get(img_id, [])
-        pred_boxes = [p for p in predictions.get(img_id, []) if p.get("confidence", 1.0) >= conf_threshold]
-
-        # Sort predictions by descending confidence
-        pred_boxes = sorted(pred_boxes, key=lambda x: x.get("confidence", 0.0), reverse=True)
-
-        gt_matched = [False] * len(gt_boxes)
-
-        for pred in pred_boxes:
-            p_cls = pred["class_id"]
-            p_box = pred["bbox"]
-            p_idx = CLASS_TO_IDX.get(p_cls, num_classes)
-
-            best_iou = 0.0
-            best_gt_idx = -1
-
-            for gt_i, gt in enumerate(gt_boxes):
-                if gt_matched[gt_i]:
-                    continue
-                iou = compute_iou(p_box, gt["bbox"])
-                if iou > best_iou:
-                    best_iou = iou
-                    best_gt_idx = gt_i
-
-            if best_iou >= iou_threshold and best_gt_idx >= 0:
-                gt_cls = gt_boxes[best_gt_idx]["class_id"]
-                gt_idx = CLASS_TO_IDX.get(gt_cls, num_classes)
-
-                if p_cls == gt_cls:
-                    # True Positive
-                    tp_counts[p_cls] += 1
-                    gt_matched[best_gt_idx] = True
-                    confusion_matrix[gt_idx, p_idx] += 1
-                else:
-                    # Misclassification (Class error)
-                    fp_counts[p_cls] += 1
-                    confusion_matrix[gt_idx, p_idx] += 1
-            else:
-                # False Positive (Background hallucination)
-                if p_cls in fp_counts:
-                    fp_counts[p_cls] += 1
-                confusion_matrix[num_classes, p_idx] += 1  # GT is background
-
-        # Unmatched ground truths are False Negatives
-        for gt_i, matched in enumerate(gt_matched):
-            if not matched:
-                gt_cls = gt_boxes[gt_i]["class_id"]
-                gt_idx = CLASS_TO_IDX.get(gt_cls, num_classes)
-                if gt_cls in fn_counts:
-                    fn_counts[gt_cls] += 1
-                confusion_matrix[gt_idx, num_classes] += 1  # Predicted is background
+    active_classes = [
+        c for c in CLASS_LIST
+        if (tp_counts[c] + fn_counts[c]) > 0
+    ]
 
     # Calculate per-class metrics
     class_metrics = {}
@@ -151,6 +197,7 @@ def evaluate_dataset_metrics(
         prec = float(tp / (tp + fp)) if (tp + fp) > 0 else 0.0
         rec = float(tp / (tp + fn)) if (tp + fn) > 0 else 0.0
         f1 = float(2 * prec * rec / (prec + rec)) if (prec + rec) > 0 else 0.0
+        ap50 = ap50_per_class[c]
 
         precisions.append(prec)
         recalls.append(rec)
@@ -162,28 +209,31 @@ def evaluate_dataset_metrics(
             "precision": round(prec, 4),
             "recall": round(rec, 4),
             "f1_score": round(f1, 4),
-            "ap50": round(prec * rec, 4)  # Approximate AP50
+            "ap50": round(ap50, 4)
         }
 
     macro_precision = float(np.mean(precisions))
     macro_recall = float(np.mean(recalls))
 
-    # Evaluate multiple IoU thresholds for mAP50-95
+    if active_classes:
+        mAP50 = round(float(np.mean([ap50_per_class[c] for c in active_classes])), 4)
+    else:
+        mAP50 = 0.0
+
+    # Evaluate multiple IoU thresholds (0.50:0.05:0.95) by redoing matching per threshold
     iou_range = np.linspace(0.50, 0.95, 10)
     map_at_thresholds = []
     for iou_th in iou_range:
-        # Match at specific threshold
-        sub_tp = 0
-        sub_total = 0
-        for c in CLASS_LIST:
-            sub_tp += class_metrics[c]["true_positives"]
-            sub_total += class_metrics[c]["true_positives"] + class_metrics[c]["false_positives"] + class_metrics[c]["false_negatives"]
-        th_score = float(sub_tp / max(1, sub_total))
-        map_at_thresholds.append(th_score)
+        _, _, _, ap_th_per_class, _ = _evaluate_at_iou_threshold(
+            ground_truths, predictions, iou_th=float(iou_th), conf_threshold=conf_threshold
+        )
+        if active_classes:
+            th_map = float(np.mean([ap_th_per_class[c] for c in active_classes]))
+        else:
+            th_map = 0.0
+        map_at_thresholds.append(th_map)
 
-    mAP50 = round(macro_precision * macro_recall + 0.15 * macro_recall, 4)
-    mAP50 = min(1.0, max(0.0, mAP50))
-    mAP50_95 = round(float(np.mean(map_at_thresholds) * 0.85), 4)
+    mAP50_95 = round(float(np.mean(map_at_thresholds)), 4)
 
     return {
         "precision": round(macro_precision, 4),
@@ -194,3 +244,4 @@ def evaluate_dataset_metrics(
         "confusion_matrix": confusion_matrix.tolist(),
         "confusion_matrix_labels": CLASS_LIST + ["background"]
     }
+
