@@ -2200,8 +2200,220 @@ class TestBackendCLAHEMCDMAndPrioritization(unittest.TestCase):
         self.assertIn("vikor_priority_stability", bench["experiments"]["E"])
 
 
+class TestDomainPhysicsAndThresholdHonesty(unittest.TestCase):
+    """
+    Unit tests for:
+    1. Crack records never have a volume; potholes always do.
+    2. Ground-plane pinhole area clamping and warning log.
+    3. Sonar water-surface bias under rain and wet-surface LiDAR degradation isolation.
+    4. Ranking sanity (large pothole outranks small crack with equal context) and threshold calibration_note.
+    """
+
+    def test_crack_records_never_have_volume_and_potholes_always_do(self):
+        from services.ai_engine.pipeline.depth_estimator import EnvironmentalSensorSwitching
+
+        switcher = EnvironmentalSensorSwitching(baseline_chassis_height_cm=30.0)
+
+        # 1. Check across all 4 defect classes via EnvironmentalSensorSwitching
+        for crack_cls in ("D00", "D10", "D20"):
+            res = switcher.evaluate_environment_and_measure(
+                rain_detected=False,
+                mean_luminance=80.0,
+                lidar_depth_cm=33.5,
+                sonar_depth_cm=33.4,
+                z_accel_g=1.15,
+                surface_area_sqm=0.85,
+                damage_class=crack_cls,
+                bbox=[200.0, 200.0, 350.0, 500.0],
+            )
+            self.assertIsNone(
+                res["calculated_volume_liters"],
+                f"Crack class {crack_cls} must have calculated_volume_liters=None",
+            )
+            self.assertIsNotNone(res["crack_severity_index"])
+            self.assertGreaterEqual(res["crack_severity_index"], 0.0)
+            self.assertLessEqual(res["crack_severity_index"], 1.0)
+            self.assertGreater(res["defect_severity_magnitude"], 0.0)
+
+        pothole_res = switcher.evaluate_environment_and_measure(
+            rain_detected=True,
+            mean_luminance=25.0,
+            lidar_depth_cm=44.0,
+            sonar_depth_cm=45.0,
+            z_accel_g=2.10,
+            surface_area_sqm=0.65,
+            damage_class="D40",
+            bbox=[220.0, 260.0, 400.0, 460.0],
+        )
+        self.assertIsNotNone(pothole_res["calculated_volume_liters"])
+        self.assertGreater(pothole_res["calculated_volume_liters"], 0.0)
+        self.assertIsNone(pothole_res["crack_severity_index"])
+        self.assertEqual(
+            pothole_res["defect_severity_magnitude"],
+            pothole_res["calculated_volume_liters"],
+        )
+
+        # 2. Check all generated SRMD records
+        srmd_path = PROJECT_ROOT / "data" / "processed" / "srmd" / "srmd_records.json"
+        srmd_records = json.loads(srmd_path.read_text(encoding="utf-8"))
+        for r in srmd_records:
+            cls_code = r["source"]["annotation_class"]
+            vol = r["visual"]["calculated_volume_liters"]
+            csi = r["visual"]["crack_severity_index"]
+            if cls_code == "D40":
+                self.assertIsNotNone(vol, f"Pothole {r['event_id']} must have volume")
+                self.assertGreater(vol, 0.0)
+                self.assertIsNone(csi, f"Pothole {r['event_id']} must have crack_severity_index=None")
+            else:
+                self.assertIsNone(vol, f"Crack {r['event_id']} ({cls_code}) must not have volume")
+                self.assertIsNotNone(csi, f"Crack {r['event_id']} ({cls_code}) must have crack_severity_index")
+                self.assertTrue(0.0 <= csi <= 1.0)
+
+    def test_ground_plane_area_clamping_and_warning_log(self):
+        from services.data_generation.consistency_model import estimate_ground_plane_area_pinhole
+
+        # 1. Oversized pothole bbox [xmin, ymin, xmax, ymax] -> must clamp to 1.00 m^2 and emit WARNING log
+        with self.assertLogs("services.data_generation.consistency_model", level="WARNING") as cm:
+            area_upper = estimate_ground_plane_area_pinhole(
+                bbox=[50.0, 100.0, 680.0, 420.0],
+                image_dims={"width": 720, "height": 720},
+                damage_class="D40",
+            )
+        self.assertAlmostEqual(area_upper, 1.00, places=4)
+        self.assertTrue(any("Clamped ground-plane area for class D40" in msg for msg in cm.output))
+
+        # 2. Tiny 1x1 pixel pothole bbox at bottom of frame -> must clamp to 0.01 m^2 and emit WARNING log
+        with self.assertLogs("services.data_generation.consistency_model", level="WARNING") as cm_low:
+            area_lower = estimate_ground_plane_area_pinhole(
+                bbox=[350.0, 700.0, 351.0, 701.0],
+                image_dims={"width": 720, "height": 720},
+                damage_class="D40",
+            )
+        self.assertAlmostEqual(area_lower, 0.01, places=4)
+        self.assertTrue(any("Clamped ground-plane area for class D40" in msg for msg in cm_low.output))
+
+        # 3. Moderate pothole bbox in lower-middle foreground -> within [0.01, 1.00] m^2 without clamping
+        area_mid = estimate_ground_plane_area_pinhole(
+            bbox=[300.0, 520.0, 420.0, 620.0],
+            image_dims={"width": 720, "height": 720},
+            damage_class="D40",
+        )
+        self.assertGreater(area_mid, 0.01)
+        self.assertLess(area_mid, 1.00)
+
+    def test_sonar_bias_only_under_rain_and_lidar_wet_degradation(self):
+        from services.data_generation.sonar_model import SonarModel
+        from services.data_generation.lidar_model import LiDARModel
+
+        # 1. Sonar systematic bias and increased noise appear ONLY when rain_detected=True
+        dry_errors = []
+        wet_errors = []
+        for s in range(100):
+            sonar_dry = SonarModel(seed=1000 + s).simulate(
+                damage_class="D40", true_defect_depth_cm=12.0, rain_detected=False
+            )
+            sonar_wet = SonarModel(seed=1000 + s).simulate(
+                damage_class="D40", true_defect_depth_cm=12.0, rain_detected=True
+            )
+            self.assertEqual(sonar_dry["systematic_bias_cm"], 0.0)
+            self.assertLess(sonar_wet["systematic_bias_cm"], 0.0)
+            self.assertGreater(sonar_wet["noise_std_cm"], sonar_dry["noise_std_cm"])
+            self.assertFalse(sonar_wet["wet_lidar_degradation_applied"])
+            dry_errors.append(sonar_dry["sensor_error_cm"])
+            wet_errors.append(sonar_wet["sensor_error_cm"])
+
+        self.assertAlmostEqual(float(np.mean(dry_errors)), 0.0, delta=0.12)
+        self.assertLess(float(np.mean(wet_errors)), -0.40)
+        self.assertGreater(float(np.std(wet_errors)), float(np.std(dry_errors)))
+
+        # 2. JSN-SR04T min-range dead zone (20.0 cm) clamps sub-range transducer distance
+        sm_dead = SonarModel(seed=42)
+        sm_dead.baseline_chassis_cm = 10.0
+        dead_zone_res = sm_dead.simulate(
+            damage_class="D40", true_defect_depth_cm=2.0, rain_detected=True
+        )
+        self.assertTrue(dead_zone_res["dead_zone_clamped"])
+        self.assertGreaterEqual(dead_zone_res["depth_cm"], 20.0)
+
+        # 3. Wet-surface LiDAR degradation is applied to LiDAR under rain, NOT to Sonar
+        lidar_dry = LiDARModel(seed=2026).simulate("D40", surface_area_sqm=0.8, rain_detected=False)
+        lidar_wet = LiDARModel(seed=2026).simulate("D40", surface_area_sqm=0.8, rain_detected=True)
+        self.assertEqual(lidar_dry["wet_surface_degradation_cm"], 0.0)
+        self.assertLess(lidar_wet["wet_surface_degradation_cm"], -1.0)
+        self.assertLess(lidar_wet["effective_depth_cm"], lidar_dry["effective_depth_cm"])
+
+    def test_ranking_sanity_large_pothole_outranks_small_crack_and_calibration_note(self):
+        import asyncio
+        from services.backend.app.services.mcdm_engine import MCDMPrioritizationEngine
+        from services.ai_engine.pipeline.depth_estimator import EnvironmentalSensorSwitching
+        import main
+
+        switcher = EnvironmentalSensorSwitching(baseline_chassis_height_cm=30.0)
+        pothole_metrics = switcher.evaluate_environment_and_measure(
+            rain_detected=False,
+            mean_luminance=85.0,
+            lidar_depth_cm=44.0,
+            sonar_depth_cm=44.0,
+            z_accel_g=2.1,
+            surface_area_sqm=0.75,
+            damage_class="D40",
+            bbox=[220.0, 260.0, 420.0, 480.0],
+        )
+        crack_metrics = switcher.evaluate_environment_and_measure(
+            rain_detected=False,
+            mean_luminance=85.0,
+            lidar_depth_cm=31.1,
+            sonar_depth_cm=31.1,
+            z_accel_g=1.05,
+            surface_area_sqm=0.18,
+            damage_class="D00",
+            bbox=[300.0, 250.0, 320.0, 420.0],
+        )
+        self.assertIsNotNone(pothole_metrics["calculated_volume_liters"])
+        self.assertIsNone(crack_metrics["calculated_volume_liters"])
+        self.assertGreater(
+            pothole_metrics["defect_severity_magnitude"],
+            crack_metrics["defect_severity_magnitude"],
+        )
+
+        # Equal spatial & traffic context:
+        # traffic=18000 PCU/day, hospital=1.2 km, speed=40 km/h, school=0.8 km, road_class=3 (ARTERIAL)
+        equal_context = [18000.0, 1.2, 40.0, 0.8, 3.0]
+        decision_matrix = np.array([
+            [pothole_metrics["defect_severity_magnitude"], *equal_context],  # Row 0: Large pothole
+            [crack_metrics["defect_severity_magnitude"], *equal_context],    # Row 1: Small crack
+        ])
+
+        for prof in ("safety-first", "traffic-first", "equity-first"):
+            eng = MCDMPrioritizationEngine(profile=prof, use_calibrated_thresholds=True)
+            res = eng.compute_all(decision_matrix, v=0.5, calibrated=True)
+            self.assertGreater(
+                res["topsis_scores"][0],
+                res["topsis_scores"][1],
+                f"Large pothole must have higher TOPSIS score than small crack under {prof}",
+            )
+            self.assertEqual(res["topsis_ranks"][0], 1)
+            self.assertEqual(res["topsis_ranks"][1], 2)
+            self.assertEqual(res["vikor_ranks"][0], 1)
+            self.assertEqual(res["vikor_ranks"][1], 2)
+
+        # Verify /api/v1/prioritization includes calibration_note and spans all 4 priority levels
+        loop = asyncio.new_event_loop()
+        try:
+            prio_res = loop.run_until_complete(
+                main.get_prioritization(method="both", profile="safety-first", v=0.5)
+            )
+        finally:
+            loop.close()
+        self.assertIn("calibration_note", prio_res)
+        self.assertIn("not validated against real maintenance outcomes", prio_res["calibration_note"])
+        tiers = {r["priority_level"] for r in prio_res["results"]}
+        self.assertEqual(tiers, {"Critical", "High", "Medium", "Low"})
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
 
