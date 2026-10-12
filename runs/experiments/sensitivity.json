@@ -46,65 +46,64 @@
         0.0746
       ],
       "topsis_scores": [
-        0.571,
-        0.4081,
-        0.3825,
-        0.3912,
-        0.5583,
-        0.3752
+        0.5747,
+        0.4283,
+        0.3789,
+        0.4112,
+        0.5782,
+        0.3975
       ],
       "topsis_ranks": [
-        1,
-        3,
-        5,
-        4,
         2,
-        6
-      ],
-      "vikor_S": [
-        0.3877,
-        0.4863,
-        0.6063,
-        0.6829,
-        0.2367,
-        0.5503
-      ],
-      "vikor_R": [
-        0.2418,
-        0.2151,
-        0.2798,
-        0.2213,
-        0.198,
-        0.1998
-      ],
-      "vikor_Q": [
-        0.4863,
-        0.2967,
-        0.9571,
-        0.4639,
-        0.0,
-        0.1923
-      ],
-      "vikor_ranks": [
-        5,
         3,
         6,
         4,
         1,
-        2
+        5
       ],
-      "spearman_rho": 0.0286,
+      "vikor_S": [
+        0.3877,
+        0.4717,
+        0.6063,
+        0.6671,
+        0.2221,
+        0.5356
+      ],
+      "vikor_R": [
+        0.2418,
+        0.2006,
+        0.2798,
+        0.2055,
+        0.1834,
+        0.1998
+      ],
+      "vikor_Q": [
+        0.5473,
+        0.2735,
+        0.9658,
+        0.422,
+        0.0,
+        0.3035
+      ],
+      "vikor_ranks": [
+        5,
+        2,
+        6,
+        4,
+        1,
+        3
+      ],
+      "spearman_rho": 0.6,
       "priority_levels": [
-        "Critical",
+        "High",
         "Medium",
         "Low",
         "Medium",
-        "High",
+        "Critical",
         "Low"
       ],
       "compromise_solution": [
-        "SRMD-IND-000278-00",
-        "SRMD-IND-000278-01"
+        "SRMD-IND-000278-00"
       ]
     },
     {
@@ -120,60 +119,60 @@
         0.0746
       ],
       "topsis_scores": [
-        0.571,
-        0.4081,
-        0.3825,
-        0.3912,
-        0.5583,
-        0.3752
+        0.5747,
+        0.4283,
+        0.3789,
+        0.4112,
+        0.5782,
+        0.3975
       ],
       "topsis_ranks": [
-        1,
-        3,
-        5,
-        4,
         2,
-        6
+        3,
+        6,
+        4,
+        1,
+        5
       ],
       "vikor_S": [
         0.3877,
-        0.4863,
+        0.4717,
         0.6063,
-        0.6829,
-        0.2367,
-        0.5503
+        0.6671,
+        0.2221,
+        0.5356
       ],
       "vikor_R": [
         0.2418,
-        0.2151,
+        0.2006,
         0.2798,
-        0.2213,
-        0.198,
+        0.2055,
+        0.1834,
         0.1998
       ],
       "vikor_Q": [
-        0.437,
-        0.3842,
-        0.9142,
-        0.6426,
+        0.4889,
+        0.3693,
+        0.9317,
+        0.6147,
         0.0,
-        0.3625
+        0.4371
       ],
       "vikor_ranks": [
         4,
-        3,
+        2,
         6,
         5,
         1,
-        2
+        3
       ],
-      "spearman_rho": 0.2,
+      "spearman_rho": 0.7143,
       "priority_levels": [
-        "Critical",
+        "High",
         "Medium",
         "Low",
         "Medium",
-        "High",
+        "Critical",
         "Low"
       ],
       "compromise_solution": [
@@ -193,44 +192,44 @@
         0.0746
       ],
       "topsis_scores": [
-        0.571,
-        0.4081,
-        0.3825,
-        0.3912,
-        0.5583,
-        0.3752
+        0.5747,
+        0.4283,
+        0.3789,
+        0.4112,
+        0.5782,
+        0.3975
       ],
       "topsis_ranks": [
-        1,
-        3,
-        5,
-        4,
         2,
-        6
+        3,
+        6,
+        4,
+        1,
+        5
       ],
       "vikor_S": [
         0.3877,
-        0.4863,
+        0.4717,
         0.6063,
-        0.6829,
-        0.2367,
-        0.5503
+        0.6671,
+        0.2221,
+        0.5356
       ],
       "vikor_R": [
         0.2418,
-        0.2151,
+        0.2006,
         0.2798,
-        0.2213,
-        0.198,
+        0.2055,
+        0.1834,
         0.1998
       ],
       "vikor_Q": [
-        0.3878,
-        0.4718,
-        0.8713,
-        0.8213,
+        0.4305,
+        0.4651,
+        0.8975,
+        0.8073,
         0.0,
-        0.5327
+        0.5708
       ],
       "vikor_ranks": [
         2,
@@ -240,13 +239,13 @@
         1,
         4
       ],
-      "spearman_rho": 0.7714,
+      "spearman_rho": 0.9429,
       "priority_levels": [
-        "Critical",
+        "High",
         "Medium",
         "Low",
         "Medium",
-        "High",
+        "Critical",
         "Low"
       ],
       "compromise_solution": [
@@ -266,12 +265,12 @@
         0.2263
       ],
       "topsis_scores": [
-        0.7625,
-        0.4109,
-        0.2646,
-        0.2241,
-        0.5916,
-        0.4506
+        0.7643,
+        0.4293,
+        0.2622,
+        0.2475,
+        0.6099,
+        0.4708
       ],
       "topsis_ranks": [
         1,
@@ -283,27 +282,27 @@
       ],
       "vikor_S": [
         0.178,
-        0.4749,
+        0.4632,
         0.7015,
-        0.8447,
-        0.1907,
-        0.4777
+        0.8319,
+        0.179,
+        0.4659
       ],
       "vikor_R": [
         0.0876,
-        0.174,
+        0.1622,
         0.2263,
         0.2546,
-        0.1601,
-        0.1604
+        0.1484,
+        0.1486
       ],
       "vikor_Q": [
         0.0,
-        0.4992,
-        0.8192,
+        0.4441,
+        0.823,
         1.0,
-        0.3305,
-        0.4396
+        0.2732,
+        0.3839
       ],
       "vikor_ranks": [
         1,
@@ -319,7 +318,7 @@
         "Medium",
         "Low",
         "Low",
-        "High",
+        "Critical",
         "Medium"
       ],
       "compromise_solution": [
@@ -339,12 +338,12 @@
         0.2263
       ],
       "topsis_scores": [
-        0.7625,
-        0.4109,
-        0.2646,
-        0.2241,
-        0.5916,
-        0.4506
+        0.7643,
+        0.4293,
+        0.2622,
+        0.2475,
+        0.6099,
+        0.4708
       ],
       "topsis_ranks": [
         1,
@@ -356,27 +355,27 @@
       ],
       "vikor_S": [
         0.178,
-        0.4749,
+        0.4632,
         0.7015,
-        0.8447,
-        0.1907,
-        0.4777
+        0.8319,
+        0.179,
+        0.4659
       ],
       "vikor_R": [
         0.0876,
-        0.174,
+        0.1622,
         0.2263,
         0.2546,
-        0.1601,
-        0.1604
+        0.1484,
+        0.1486
       ],
       "vikor_Q": [
         0.0,
-        0.4813,
-        0.8078,
+        0.4414,
+        0.8155,
         1.0,
-        0.2267,
-        0.4429
+        0.1826,
+        0.4027
       ],
       "vikor_ranks": [
         1,
@@ -392,11 +391,12 @@
         "Medium",
         "Low",
         "Low",
-        "High",
+        "Critical",
         "Medium"
       ],
       "compromise_solution": [
-        "SRMD-IND-000045-00"
+        "SRMD-IND-000045-00",
+        "SRMD-IND-000278-00"
       ]
     },
     {
@@ -412,12 +412,12 @@
         0.2263
       ],
       "topsis_scores": [
-        0.7625,
-        0.4109,
-        0.2646,
-        0.2241,
-        0.5916,
-        0.4506
+        0.7643,
+        0.4293,
+        0.2622,
+        0.2475,
+        0.6099,
+        0.4708
       ],
       "topsis_ranks": [
         1,
@@ -429,27 +429,27 @@
       ],
       "vikor_S": [
         0.178,
-        0.4749,
+        0.4632,
         0.7015,
-        0.8447,
-        0.1907,
-        0.4777
+        0.8319,
+        0.179,
+        0.4659
       ],
       "vikor_R": [
         0.0876,
-        0.174,
+        0.1622,
         0.2263,
         0.2546,
-        0.1601,
-        0.1604
+        0.1484,
+        0.1486
       ],
       "vikor_Q": [
         0.0,
-        0.4633,
-        0.7965,
+        0.4388,
+        0.808,
         1.0,
-        0.1229,
-        0.4462
+        0.092,
+        0.4214
       ],
       "vikor_ranks": [
         1,
@@ -465,7 +465,7 @@
         "Medium",
         "Low",
         "Low",
-        "High",
+        "Critical",
         "Medium"
       ],
       "compromise_solution": [
@@ -486,12 +486,12 @@
         0.1021
       ],
       "topsis_scores": [
-        0.3527,
-        0.5798,
-        0.6136,
-        0.5564,
-        0.7358,
-        0.5042
+        0.3558,
+        0.5875,
+        0.6105,
+        0.5643,
+        0.7471,
+        0.5101
       ],
       "topsis_ranks": [
         6,
@@ -503,37 +503,37 @@
       ],
       "vikor_S": [
         0.5658,
-        0.4184,
+        0.4102,
         0.4512,
-        0.582,
-        0.1584,
-        0.4972
+        0.573,
+        0.1502,
+        0.4888
       ],
       "vikor_R": [
         0.295,
         0.144,
         0.1587,
-        0.1255,
-        0.1123,
+        0.1166,
+        0.104,
         0.2438
       ],
       "vikor_Q": [
-        0.9904,
-        0.2838,
-        0.3633,
-        0.3043,
+        0.9957,
+        0.3108,
+        0.3926,
+        0.2992,
         0.0,
-        0.7396
+        0.749
       ],
       "vikor_ranks": [
         6,
-        2,
-        4,
         3,
+        4,
+        2,
         1,
         5
       ],
-      "spearman_rho": 0.8286,
+      "spearman_rho": 0.7714,
       "priority_levels": [
         "Low",
         "Medium",
@@ -559,12 +559,12 @@
         0.1021
       ],
       "topsis_scores": [
-        0.3527,
-        0.5798,
-        0.6136,
-        0.5564,
-        0.7358,
-        0.5042
+        0.3558,
+        0.5875,
+        0.6105,
+        0.5643,
+        0.7471,
+        0.5101
       ],
       "topsis_ranks": [
         6,
@@ -576,27 +576,27 @@
       ],
       "vikor_S": [
         0.5658,
-        0.4184,
+        0.4102,
         0.4512,
-        0.582,
-        0.1584,
-        0.4972
+        0.573,
+        0.1502,
+        0.4888
       ],
       "vikor_R": [
         0.295,
         0.144,
         0.1587,
-        0.1255,
-        0.1123,
+        0.1166,
+        0.104,
         0.2438
       ],
       "vikor_Q": [
-        0.9809,
-        0.3938,
-        0.4726,
-        0.5362,
+        0.9915,
+        0.4122,
+        0.499,
+        0.5328,
         0.0,
-        0.7596
+        0.7663
       ],
       "vikor_ranks": [
         6,
@@ -632,12 +632,12 @@
         0.1021
       ],
       "topsis_scores": [
-        0.3527,
-        0.5798,
-        0.6136,
-        0.5564,
-        0.7358,
-        0.5042
+        0.3558,
+        0.5875,
+        0.6105,
+        0.5643,
+        0.7471,
+        0.5101
       ],
       "topsis_ranks": [
         6,
@@ -649,27 +649,27 @@
       ],
       "vikor_S": [
         0.5658,
-        0.4184,
+        0.4102,
         0.4512,
-        0.582,
-        0.1584,
-        0.4972
+        0.573,
+        0.1502,
+        0.4888
       ],
       "vikor_R": [
         0.295,
         0.144,
         0.1587,
-        0.1255,
-        0.1123,
+        0.1166,
+        0.104,
         0.2438
       ],
       "vikor_Q": [
-        0.9713,
-        0.5039,
-        0.5818,
-        0.7681,
+        0.9872,
+        0.5136,
+        0.6054,
+        0.7664,
         0.0,
-        0.7797
+        0.7836
       ],
       "vikor_ranks": [
         6,
@@ -695,13 +695,13 @@
   ],
   "pairwise_spearman": {
     "within_setting_topsis_vs_vikor": {
-      "safety-first_v0.25": 0.0286,
-      "safety-first_v0.50": 0.2,
-      "safety-first_v0.75": 0.7714,
+      "safety-first_v0.25": 0.6,
+      "safety-first_v0.50": 0.7143,
+      "safety-first_v0.75": 0.9429,
       "traffic-first_v0.25": 1.0,
       "traffic-first_v0.50": 1.0,
       "traffic-first_v0.75": 1.0,
-      "equity-first_v0.25": 0.8286,
+      "equity-first_v0.25": 0.7714,
       "equity-first_v0.50": 0.9429,
       "equity-first_v0.75": 0.9429
     },
@@ -710,39 +710,39 @@
         "safety-first_v0.25": 1.0,
         "safety-first_v0.50": 1.0,
         "safety-first_v0.75": 1.0,
-        "traffic-first_v0.25": 0.6,
-        "traffic-first_v0.50": 0.6,
-        "traffic-first_v0.75": 0.6,
-        "equity-first_v0.25": -0.0286,
-        "equity-first_v0.50": -0.0286,
-        "equity-first_v0.75": -0.0286
+        "traffic-first_v0.25": 0.6571,
+        "traffic-first_v0.50": 0.6571,
+        "traffic-first_v0.75": 0.6571,
+        "equity-first_v0.25": 0.0857,
+        "equity-first_v0.50": 0.0857,
+        "equity-first_v0.75": 0.0857
       },
       "safety-first_v0.50": {
         "safety-first_v0.25": 1.0,
         "safety-first_v0.50": 1.0,
         "safety-first_v0.75": 1.0,
-        "traffic-first_v0.25": 0.6,
-        "traffic-first_v0.50": 0.6,
-        "traffic-first_v0.75": 0.6,
-        "equity-first_v0.25": -0.0286,
-        "equity-first_v0.50": -0.0286,
-        "equity-first_v0.75": -0.0286
+        "traffic-first_v0.25": 0.6571,
+        "traffic-first_v0.50": 0.6571,
+        "traffic-first_v0.75": 0.6571,
+        "equity-first_v0.25": 0.0857,
+        "equity-first_v0.50": 0.0857,
+        "equity-first_v0.75": 0.0857
       },
       "safety-first_v0.75": {
         "safety-first_v0.25": 1.0,
         "safety-first_v0.50": 1.0,
         "safety-first_v0.75": 1.0,
-        "traffic-first_v0.25": 0.6,
-        "traffic-first_v0.50": 0.6,
-        "traffic-first_v0.75": 0.6,
-        "equity-first_v0.25": -0.0286,
-        "equity-first_v0.50": -0.0286,
-        "equity-first_v0.75": -0.0286
+        "traffic-first_v0.25": 0.6571,
+        "traffic-first_v0.50": 0.6571,
+        "traffic-first_v0.75": 0.6571,
+        "equity-first_v0.25": 0.0857,
+        "equity-first_v0.50": 0.0857,
+        "equity-first_v0.75": 0.0857
       },
       "traffic-first_v0.25": {
-        "safety-first_v0.25": 0.6,
-        "safety-first_v0.50": 0.6,
-        "safety-first_v0.75": 0.6,
+        "safety-first_v0.25": 0.6571,
+        "safety-first_v0.50": 0.6571,
+        "safety-first_v0.75": 0.6571,
         "traffic-first_v0.25": 1.0,
         "traffic-first_v0.50": 1.0,
         "traffic-first_v0.75": 1.0,
@@ -751,9 +751,9 @@
         "equity-first_v0.75": -0.2571
       },
       "traffic-first_v0.50": {
-        "safety-first_v0.25": 0.6,
-        "safety-first_v0.50": 0.6,
-        "safety-first_v0.75": 0.6,
+        "safety-first_v0.25": 0.6571,
+        "safety-first_v0.50": 0.6571,
+        "safety-first_v0.75": 0.6571,
         "traffic-first_v0.25": 1.0,
         "traffic-first_v0.50": 1.0,
         "traffic-first_v0.75": 1.0,
@@ -762,9 +762,9 @@
         "equity-first_v0.75": -0.2571
       },
       "traffic-first_v0.75": {
-        "safety-first_v0.25": 0.6,
-        "safety-first_v0.50": 0.6,
-        "safety-first_v0.75": 0.6,
+        "safety-first_v0.25": 0.6571,
+        "safety-first_v0.50": 0.6571,
+        "safety-first_v0.75": 0.6571,
         "traffic-first_v0.25": 1.0,
         "traffic-first_v0.50": 1.0,
         "traffic-first_v0.75": 1.0,
@@ -773,9 +773,9 @@
         "equity-first_v0.75": -0.2571
       },
       "equity-first_v0.25": {
-        "safety-first_v0.25": -0.0286,
-        "safety-first_v0.50": -0.0286,
-        "safety-first_v0.75": -0.0286,
+        "safety-first_v0.25": 0.0857,
+        "safety-first_v0.50": 0.0857,
+        "safety-first_v0.75": 0.0857,
         "traffic-first_v0.25": -0.2571,
         "traffic-first_v0.50": -0.2571,
         "traffic-first_v0.75": -0.2571,
@@ -784,9 +784,9 @@
         "equity-first_v0.75": 1.0
       },
       "equity-first_v0.50": {
-        "safety-first_v0.25": -0.0286,
-        "safety-first_v0.50": -0.0286,
-        "safety-first_v0.75": -0.0286,
+        "safety-first_v0.25": 0.0857,
+        "safety-first_v0.50": 0.0857,
+        "safety-first_v0.75": 0.0857,
         "traffic-first_v0.25": -0.2571,
         "traffic-first_v0.50": -0.2571,
         "traffic-first_v0.75": -0.2571,
@@ -795,9 +795,9 @@
         "equity-first_v0.75": 1.0
       },
       "equity-first_v0.75": {
-        "safety-first_v0.25": -0.0286,
-        "safety-first_v0.50": -0.0286,
-        "safety-first_v0.75": -0.0286,
+        "safety-first_v0.25": 0.0857,
+        "safety-first_v0.50": 0.0857,
+        "safety-first_v0.75": 0.0857,
         "traffic-first_v0.25": -0.2571,
         "traffic-first_v0.50": -0.2571,
         "traffic-first_v0.75": -0.2571,
@@ -810,99 +810,99 @@
       "safety-first_v0.25": {
         "safety-first_v0.25": 1.0,
         "safety-first_v0.50": 0.9429,
-        "safety-first_v0.75": 0.6,
-        "traffic-first_v0.25": 0.3143,
-        "traffic-first_v0.50": 0.3143,
-        "traffic-first_v0.75": 0.3143,
-        "equity-first_v0.25": 0.5429,
-        "equity-first_v0.50": 0.4286,
-        "equity-first_v0.75": 0.4286
+        "safety-first_v0.75": 0.6571,
+        "traffic-first_v0.25": 0.2571,
+        "traffic-first_v0.50": 0.2571,
+        "traffic-first_v0.75": 0.2571,
+        "equity-first_v0.25": 0.6,
+        "equity-first_v0.50": 0.6,
+        "equity-first_v0.75": 0.6
       },
       "safety-first_v0.50": {
         "safety-first_v0.25": 0.9429,
         "safety-first_v0.50": 1.0,
-        "safety-first_v0.75": 0.7714,
-        "traffic-first_v0.25": 0.6,
-        "traffic-first_v0.50": 0.6,
-        "traffic-first_v0.75": 0.6,
+        "safety-first_v0.75": 0.8286,
+        "traffic-first_v0.25": 0.5429,
+        "traffic-first_v0.50": 0.5429,
+        "traffic-first_v0.75": 0.5429,
         "equity-first_v0.25": 0.3714,
-        "equity-first_v0.50": 0.3143,
-        "equity-first_v0.75": 0.3143
+        "equity-first_v0.50": 0.4857,
+        "equity-first_v0.75": 0.4857
       },
       "safety-first_v0.75": {
-        "safety-first_v0.25": 0.6,
-        "safety-first_v0.50": 0.7714,
+        "safety-first_v0.25": 0.6571,
+        "safety-first_v0.50": 0.8286,
         "safety-first_v0.75": 1.0,
         "traffic-first_v0.25": 0.8286,
         "traffic-first_v0.50": 0.8286,
         "traffic-first_v0.75": 0.8286,
-        "equity-first_v0.25": 0.2571,
+        "equity-first_v0.25": 0.1429,
         "equity-first_v0.50": 0.2,
         "equity-first_v0.75": 0.2
       },
       "traffic-first_v0.25": {
-        "safety-first_v0.25": 0.3143,
-        "safety-first_v0.50": 0.6,
+        "safety-first_v0.25": 0.2571,
+        "safety-first_v0.50": 0.5429,
         "safety-first_v0.75": 0.8286,
         "traffic-first_v0.25": 1.0,
         "traffic-first_v0.50": 1.0,
         "traffic-first_v0.75": 1.0,
-        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.25": -0.3714,
         "equity-first_v0.50": -0.2,
         "equity-first_v0.75": -0.2
       },
       "traffic-first_v0.50": {
-        "safety-first_v0.25": 0.3143,
-        "safety-first_v0.50": 0.6,
+        "safety-first_v0.25": 0.2571,
+        "safety-first_v0.50": 0.5429,
         "safety-first_v0.75": 0.8286,
         "traffic-first_v0.25": 1.0,
         "traffic-first_v0.50": 1.0,
         "traffic-first_v0.75": 1.0,
-        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.25": -0.3714,
         "equity-first_v0.50": -0.2,
         "equity-first_v0.75": -0.2
       },
       "traffic-first_v0.75": {
-        "safety-first_v0.25": 0.3143,
-        "safety-first_v0.50": 0.6,
+        "safety-first_v0.25": 0.2571,
+        "safety-first_v0.50": 0.5429,
         "safety-first_v0.75": 0.8286,
         "traffic-first_v0.25": 1.0,
         "traffic-first_v0.50": 1.0,
         "traffic-first_v0.75": 1.0,
-        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.25": -0.3714,
         "equity-first_v0.50": -0.2,
         "equity-first_v0.75": -0.2
       },
       "equity-first_v0.25": {
-        "safety-first_v0.25": 0.5429,
+        "safety-first_v0.25": 0.6,
         "safety-first_v0.50": 0.3714,
-        "safety-first_v0.75": 0.2571,
-        "traffic-first_v0.25": -0.2571,
-        "traffic-first_v0.50": -0.2571,
-        "traffic-first_v0.75": -0.2571,
+        "safety-first_v0.75": 0.1429,
+        "traffic-first_v0.25": -0.3714,
+        "traffic-first_v0.50": -0.3714,
+        "traffic-first_v0.75": -0.3714,
         "equity-first_v0.25": 1.0,
-        "equity-first_v0.50": 0.9429,
-        "equity-first_v0.75": 0.9429
+        "equity-first_v0.50": 0.8286,
+        "equity-first_v0.75": 0.8286
       },
       "equity-first_v0.50": {
-        "safety-first_v0.25": 0.4286,
-        "safety-first_v0.50": 0.3143,
+        "safety-first_v0.25": 0.6,
+        "safety-first_v0.50": 0.4857,
         "safety-first_v0.75": 0.2,
         "traffic-first_v0.25": -0.2,
         "traffic-first_v0.50": -0.2,
         "traffic-first_v0.75": -0.2,
-        "equity-first_v0.25": 0.9429,
+        "equity-first_v0.25": 0.8286,
         "equity-first_v0.50": 1.0,
         "equity-first_v0.75": 1.0
       },
       "equity-first_v0.75": {
-        "safety-first_v0.25": 0.4286,
-        "safety-first_v0.50": 0.3143,
+        "safety-first_v0.25": 0.6,
+        "safety-first_v0.50": 0.4857,
         "safety-first_v0.75": 0.2,
         "traffic-first_v0.25": -0.2,
         "traffic-first_v0.50": -0.2,
         "traffic-first_v0.75": -0.2,
-        "equity-first_v0.25": 0.9429,
+        "equity-first_v0.25": 0.8286,
         "equity-first_v0.50": 1.0,
         "equity-first_v0.75": 1.0
       }
@@ -913,12 +913,12 @@
       "record_id": "SRMD-IND-000045-00",
       "label": "SRMD-IND-000045-00 (D40 @ Western Express Highway, )",
       "damage_class": "D40",
-      "topsis_rank_1_count": 6,
-      "topsis_rank_1_frequency": 0.6667,
+      "topsis_rank_1_count": 3,
+      "topsis_rank_1_frequency": 0.3333,
       "vikor_rank_1_count": 3,
       "vikor_rank_1_frequency": 0.3333,
-      "total_rank_1_count": 9,
-      "overall_rank_1_frequency": 0.5
+      "total_rank_1_count": 6,
+      "overall_rank_1_frequency": 0.3333
     },
     "SRMD-IND-000102-00": {
       "record_id": "SRMD-IND-000102-00",
@@ -957,12 +957,12 @@
       "record_id": "SRMD-IND-000278-00",
       "label": "SRMD-IND-000278-00 (D40 @ Western Express Highway, )",
       "damage_class": "D40",
-      "topsis_rank_1_count": 3,
-      "topsis_rank_1_frequency": 0.3333,
+      "topsis_rank_1_count": 6,
+      "topsis_rank_1_frequency": 0.6667,
       "vikor_rank_1_count": 6,
       "vikor_rank_1_frequency": 0.6667,
-      "total_rank_1_count": 9,
-      "overall_rank_1_frequency": 0.5
+      "total_rank_1_count": 12,
+      "overall_rank_1_frequency": 0.6667
     },
     "SRMD-IND-000278-01": {
       "record_id": "SRMD-IND-000278-01",

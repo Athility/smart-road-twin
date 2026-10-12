@@ -573,10 +573,10 @@ export const PipelineFlowPanel: React.FC<PipelineFlowPanelProps> = ({ record }) 
           {isPothole ? (
             <div>
               <div style={{ color: '#93C5FD', fontWeight: 700, marginBottom: 2 }}>
-                V = (2/3) * Area * Depth * 1000  (Truncated Paraboloid)
+                V = 0.5 * Area * Depth * 1000  (Paraboloid Cavity Model)
               </div>
               <div style={{ color: '#64748B', fontSize: '9px' }}>
-                = (2/3) * {record.surface_area_sqm.toFixed(4)} m² * {((pt?.estimated_depth_cm ?? 0) / 100).toFixed(4)} m * 1000 = {pt?.calculated_volume_liters?.toFixed(2) ?? '...'} Liters
+                = 0.5 * {record.surface_area_sqm.toFixed(4)} m² * {((pt?.estimated_depth_cm ?? 0) / 100).toFixed(4)} m * 1000 = {pt?.calculated_volume_liters?.toFixed(2) ?? '...'} Liters
               </div>
             </div>
           ) : (

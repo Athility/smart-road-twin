@@ -259,6 +259,25 @@ class SRMDRecordBuilder:
             luminance_lux=lux
         )
 
+        # Update observed volume / severity metrics using active sensor selected depth
+        # For D40 (pothole): V = 0.5 * Area * Depth * 1000 (Paraboloid cavity volume)
+        if damage_class == "D40":
+            volume_liters = round(0.50 * (surface_area_sqm * 10000.0) * sensor_eval["selected_depth_cm"] / 1000.0, 2)
+            crack_severity_index = None
+        else:
+            volume_liters = None
+            crack_severity_index = self.consistency.compute_crack_severity_index(
+                damage_class=damage_class,
+                surface_area_sqm=surface_area_sqm,
+                depth_cm=sensor_eval["selected_depth_cm"],
+                bbox=bbox
+            )
+        defect_severity_magnitude = self.consistency.compute_defect_severity_magnitude(
+            damage_class=damage_class,
+            volume_liters=volume_liters,
+            crack_severity_index=crack_severity_index
+        )
+
         # 7. Accelerometer Z-axis Dynamic Impact Model
         accel_res = self.consistency.derive_accelerometer_impact(
             defect_severity=defect_severity,

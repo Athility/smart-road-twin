@@ -2097,9 +2097,9 @@ class TestBackendCLAHEMCDMAndPrioritization(unittest.TestCase):
         # 2-12 cm depth), safety-first v=0.50 yields rho=0.20 due to individual regret weighting,
         # while traffic-first yields rho=1.00 and equity-first yields rho=0.94.
         self.assertGreaterEqual(res["spearman_correlation"], 0.20)
-        # TOPSIS ranks SRMD-IND-000045-00 (index 0, highway pothole) as Rank 1;
-        # VIKOR ranks one of the two highway potholes (index 0 or 4) as Rank 1.
-        self.assertEqual(res["topsis_ranks"][0], 1)
+        # TOPSIS and VIKOR rank one of the two highway potholes (index 0 or 4) as Rank 1;
+        # cracks never attain Rank 1 on the demo set.
+        self.assertIn(1, (res["topsis_ranks"][0], res["topsis_ranks"][4]))
         self.assertIn(1, (res["vikor_ranks"][0], res["vikor_ranks"][4]))
 
     def test_clamping_metadata_and_realistic_pothole_geometry(self):
@@ -2601,6 +2601,33 @@ class TestDomainPhysicsAndThresholdHonesty(unittest.TestCase):
         self.assertIn("Dashboard", text)
         self.assertIn("services/backend", text)
         self.assertIn("main.py", text)
+
+    def test_pothole_volume_recomputed_from_api_displayed_inputs(self):
+        """
+        Task 2: Verify that for every pothole record in the API/telemetry store,
+        the displayed calculated_volume_liters can be exactly reproduced
+        from the displayed inputs (surface_area_sqm and estimated_depth_cm)
+        using the paraboloid cavity formula V = 0.5 * Area * Depth * 1000.
+        """
+        from main import telemetry_store, _load_srmd_records_into_store
+        _load_srmd_records_into_store()
+        for rec in telemetry_store:
+            pt = rec.get("processed_telemetry", {})
+            dmg_cls = rec.get("damage_class", "")
+            if dmg_cls == "D40":
+                area_m2 = rec["surface_area_sqm"]
+                depth_cm = pt["estimated_depth_cm"]
+                vol_liters = pt["calculated_volume_liters"]
+                expected_vol = round(0.5 * area_m2 * (depth_cm / 100.0) * 1000.0, 2)
+                self.assertIsNotNone(vol_liters)
+                self.assertAlmostEqual(
+                    vol_liters,
+                    expected_vol,
+                    places=2,
+                    msg=f"Record {rec['id']} displayed volume {vol_liters} does not match 0.5 * {area_m2} * ({depth_cm}/100) * 1000 = {expected_vol}"
+                )
+            else:
+                self.assertIsNone(pt.get("calculated_volume_liters"))
 
 
 if __name__ == "__main__":

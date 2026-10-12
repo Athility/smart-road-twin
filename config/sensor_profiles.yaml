@@ -500,6 +500,12 @@ camera:
     D10: [0.01, 1.50]            # Transverse crack footprint (0.01 - 1.5 m^2)
     D00: [0.01, 1.50]            # Longitudinal crack footprint (0.01 - 1.5 m^2)
 
+pothole_cavity:
+  geometry_model: "paraboloid"
+  shape_factor: 0.50             # V = 0.5 * Area * Depth * 1000 (standard paraboloid of revolution with elliptical base)
+  depth_source: "active_sensor_measured"  # Uses active sensor observed cavity depth (selected_depth_cm)
+  unit: "liters"
+
 preprocessing:
   enable_clahe: true
   clahe_clip_limit: 2.0
