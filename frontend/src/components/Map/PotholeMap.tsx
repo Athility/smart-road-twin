@@ -1,16 +1,13 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import { TelemetryRecord, PriorityLevel } from '@/types/telemetry';
 import {
-  Ruler,
-  Droplets,
-  Hospital,
-  Navigation,
-  Zap,
-  Car,
+  Layers,
+  Flame,
+  Maximize2,
 } from 'lucide-react';
 
 interface PotholeMapProps {
@@ -27,16 +24,18 @@ const PRIORITY_CONFIG = {
   Low:      { color: '#22C55E', dot: '#4ADE80', size: 22 },
 };
 
-// Controller: smooth pan on selection, fit bounds whenever the incident set changes
+// Controller: smooth pan on selection, fit bounds whenever the incident set changes or on trigger
 function MapController({
   selectedRecord,
   potholes,
+  fitTrigger,
 }: {
   selectedRecord: TelemetryRecord | null;
   potholes: TelemetryRecord[];
+  fitTrigger: number;
 }) {
   const map = useMap();
-  const lastFittedSignature = React.useRef<string>('');
+  const lastFittedSignature = useRef<string>('');
 
   useEffect(() => {
     const signature = potholes.map((p) => p.id).join(',');
@@ -51,6 +50,13 @@ function MapController({
       lastFittedSignature.current = signature;
     }
   }, [selectedRecord, map, potholes]);
+
+  useEffect(() => {
+    if (fitTrigger > 0 && potholes.length > 0) {
+      const bounds = L.latLngBounds(potholes.map((p) => [p.latitude, p.longitude]));
+      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 });
+    }
+  }, [fitTrigger, map, potholes]);
 
   return null;
 }
@@ -116,12 +122,205 @@ function createMarkerIcon(priority: PriorityLevel, isSelected: boolean): L.DivIc
   });
 }
 
+function createPopupHtml(pothole: TelemetryRecord): string {
+  const cfg = PRIORITY_CONFIG[pothole.priority_level] ?? PRIORITY_CONFIG.Low;
+  const pt = pothole.processed_telemetry;
+  const isPothole = (pothole.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null;
+  const volumeDisplay = isPothole && pt?.calculated_volume_liters != null
+    ? `${pt.calculated_volume_liters.toFixed(1)} L`
+    : pt?.crack_severity_index != null
+    ? pt.crack_severity_index.toFixed(3)
+    : '—';
+  const volumeLabel = isPothole ? 'Volume (L)' : 'Crack severity';
+  const volumeColor = isPothole ? '#60A5FA' : '#A78BFA';
+  const topsisStr = typeof pothole.topsis_score === 'number' && !isNaN(pothole.topsis_score)
+    ? pothole.topsis_score.toFixed(3)
+    : 'N/A';
+  const modality = pt?.detection_modality === 'sonar_submerged_acoustic' ? 'Acoustic Sonar' : 'Optical LiDAR';
+  const hospColor = pothole.dist_hospital_km < 1.0 ? 'color:#EF4444;' : 'color:#EEF2FF;';
+  const impactColor = pt?.dynamic_impact_confirmed ? 'color:#EF4444;' : 'color:#4D5A72;';
+  const impactVal = pt?.dynamic_impact_confirmed ? 'Confirmed >1.5g' : 'None';
+  const clampedBadge = pothole.area_clamped
+    ? '<span style="font-size:8px;font-weight:700;color:#FBBF24;background:rgba(234,179,8,0.18);border:1px solid rgba(234,179,8,0.4);padding:1px 3px;border-radius:2px;margin-left:4px;">CLAMPED</span>'
+    : '';
+
+  return `
+    <div style="padding: 12px 14px 10px; font-family: system-ui, -apple-system, sans-serif; min-width: 250px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #1E2435;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-family: ui-monospace, monospace; font-weight: 700; font-size: 13px; color: #EEF2FF;">${pothole.id}</span>
+          <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: ${cfg.color}20; border: 1px solid ${cfg.color}50; color: ${cfg.color}; padding: 2px 7px; border-radius: 3px;">${pothole.priority_level}</span>
+        </div>
+        <span style="font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; color: ${cfg.color};">${topsisStr}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;">
+        <div style="background: #1C2235; border: 1px solid #252D40; border-radius: 5px; padding: 6px 8px;">
+          <div style="font-size: 9px; color: #4D5A72; margin-bottom: 2px;">Est. Depth</div>
+          <div style="font-family: monospace; font-weight: 700; font-size: 13px; color: #EEF2FF;">${pt?.estimated_depth_cm ?? '—'} cm</div>
+        </div>
+        <div style="background: #1C2235; border: 1px solid #252D40; border-radius: 5px; padding: 6px 8px;">
+          <div style="font-size: 9px; color: #4D5A72; margin-bottom: 2px;">${volumeLabel}</div>
+          <div style="font-family: monospace; font-weight: 700; font-size: 13px; color: ${volumeColor};">${volumeDisplay}</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 5px; font-size: 11px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: #8892A4;">Modality</span><span style="color: #EEF2FF; font-family: monospace;">${modality}</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: #8892A4;">Hospital</span><span style="${hospColor} font-family: monospace;">${pothole.dist_hospital_km} km</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: #8892A4;">Traffic</span><span style="color: #EEF2FF; font-family: monospace;">${pothole.traffic_pcu.toLocaleString()} PCU</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="${impactColor}; color: #8892A4;">Impact</span><span style="${impactColor} font-family: monospace;">${impactVal}</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: #8892A4;">Surface</span><span style="color: #EEF2FF; font-family: monospace;">${pothole.surface_area_sqm} m² ${clampedBadge} · ${pothole.rain_detected ? 'Wet' : 'Dry'}</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="color: #8892A4;">Vehicle</span><span style="color: #EEF2FF; font-family: monospace;">${pothole.vehicle_id}</span></div>
+      </div>
+      <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #1E2435; display: flex; justify-content: flex-end;">
+        <span style="font-family: monospace; font-size: 9px; color: #4D5A72;">${pothole.latitude.toFixed(4)}, ${pothole.longitude.toFixed(4)}</span>
+      </div>
+    </div>
+  `;
+}
+
+// Marker Clustering Layer
+function ClusteredLayer({
+  potholes,
+  selectedPotholeId,
+  onSelectPothole,
+}: {
+  potholes: TelemetryRecord[];
+  selectedPotholeId: string | null;
+  onSelectPothole: (id: string) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (typeof (L as any).markerClusterGroup !== 'function') return;
+
+    const clusterGroup = (L as any).markerClusterGroup({
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      spiderfyOnMaxZoom: true,
+      maxClusterRadius: 45,
+      iconCreateFunction: (cluster: any) => {
+        const markers = cluster.getAllChildMarkers();
+        const count = cluster.getChildCount();
+        const rankMap: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+        let highest = 'Low';
+        markers.forEach((m: any) => {
+          const p = m.options.priorityLevel || 'Low';
+          if ((rankMap[p] || 0) > (rankMap[highest] || 0)) highest = p;
+        });
+        const cfg = PRIORITY_CONFIG[highest as PriorityLevel] ?? PRIORITY_CONFIG.Low;
+
+        return L.divIcon({
+          html: `<div style="
+            width: 36px; height: 36px; border-radius: 50%;
+            background: ${cfg.color}E6;
+            border: 2px solid #FFFFFF;
+            display: flex; align-items: center; justify-content: center;
+            color: #FFFFFF; font-weight: 700; font-family: ui-monospace, monospace;
+            font-size: 13px;
+            box-shadow: 0 0 14px ${cfg.color}90, 0 3px 8px rgba(0,0,0,0.6);
+          ">${count}</div>`,
+          className: 'custom-cluster-marker',
+          iconSize: [36, 36],
+        });
+      },
+    });
+
+    potholes.forEach((pothole) => {
+      const isSelected = pothole.id === selectedPotholeId;
+      const icon = createMarkerIcon(pothole.priority_level, isSelected);
+      const marker = L.marker([pothole.latitude, pothole.longitude], {
+        icon,
+        priorityLevel: pothole.priority_level,
+      } as any);
+
+      marker.on('click', () => {
+        onSelectPothole(pothole.id);
+      });
+
+      marker.bindPopup(createPopupHtml(pothole), {
+        className: 'pothole-custom-popup',
+        minWidth: 260,
+        maxWidth: 300,
+      });
+
+      clusterGroup.addLayer(marker);
+    });
+
+    map.addLayer(clusterGroup);
+
+    return () => {
+      map.removeLayer(clusterGroup);
+    };
+  }, [map, potholes, selectedPotholeId, onSelectPothole]);
+
+  return null;
+}
+
+// Heatmap Layer using leaflet.heat
+function HeatmapLayer({ potholes }: { potholes: TelemetryRecord[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (typeof (L as any).heatLayer !== 'function') return;
+
+    const points = potholes.map((p) => {
+      const intensity =
+        typeof p.topsis_score === 'number' && !isNaN(p.topsis_score)
+          ? Math.max(0.3, Math.min(1.0, p.topsis_score))
+          : 0.5;
+      return [p.latitude, p.longitude, intensity] as [number, number, number];
+    });
+
+    const heat = (L as any).heatLayer(points, {
+      radius: 38,
+      blur: 24,
+      maxZoom: 17,
+      max: 1.0,
+      gradient: {
+        0.2: '#3B82F6',
+        0.4: '#10B981',
+        0.6: '#F59E0B',
+        0.8: '#F97316',
+        1.0: '#EF4444',
+      },
+    });
+
+    map.addLayer(heat);
+
+    return () => {
+      map.removeLayer(heat);
+    };
+  }, [map, potholes]);
+
+  return null;
+}
+
 export const PotholeMap: React.FC<PotholeMapProps> = ({
   potholes,
   selectedPotholeId,
   onSelectPothole,
   filteredPriority,
 }) => {
+  const [enableCluster, setEnableCluster] = useState<boolean>(true);
+  const [enableHeatmap, setEnableHeatmap] = useState<boolean>(false);
+  const [fitTrigger, setFitTrigger] = useState<number>(0);
+  const [pluginsReady, setPluginsReady] = useState<boolean>(false);
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      import('leaflet.markercluster'),
+      import('leaflet.heat'),
+    ]).then(() => {
+      if (mounted) setPluginsReady(true);
+    }).catch((err) => {
+      console.warn('Failed to load leaflet extensions:', err);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const displayedPotholes = useMemo(() => {
     if (filteredPriority === 'All') return potholes;
     return potholes.filter((p) => p.priority_level === filteredPriority);
@@ -146,245 +345,193 @@ export const PotholeMap: React.FC<PotholeMapProps> = ({
         style={{ width: '100%', height: '100%' }}
       >
         {/*
-          Esri World Street Map — free, no API key required, no watermarks.
-          The Esri attribution is required as per their terms.
+          CARTO dark_all basemap with correct attribution
         */}
         <TileLayer
-          attribution='Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012'
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-          maxZoom={18}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
+          maxZoom={20}
         />
 
-        <MapController selectedRecord={selectedRecord} potholes={displayedPotholes} />
+        <MapController
+          selectedRecord={selectedRecord}
+          potholes={displayedPotholes}
+          fitTrigger={fitTrigger}
+        />
 
-        {displayedPotholes.map((pothole) => {
-          const cfg = PRIORITY_CONFIG[pothole.priority_level] ?? PRIORITY_CONFIG.Low;
-          const isSelected = pothole.id === selectedPotholeId;
-          const icon = createMarkerIcon(pothole.priority_level, isSelected);
-          const pt = pothole.processed_telemetry;
+        {/* Heatmap Layer */}
+        {enableHeatmap && pluginsReady && (
+          <HeatmapLayer potholes={displayedPotholes} />
+        )}
 
-          return (
-            <React.Fragment key={pothole.id}>
-              {/* Hazard zone circle */}
-              <Circle
-                center={[pothole.latitude, pothole.longitude]}
-                radius={Math.max(3, Math.min(12, Math.sqrt((pothole.surface_area_sqm || 0.1) / Math.PI) * 6))}
-                pathOptions={{
-                  color: cfg.color,
-                  fillColor: cfg.color,
-                  fillOpacity: pothole.priority_level === 'Critical' ? 0.18 : 0.08,
-                  weight: 1,
-                  dashArray: pt?.is_submerged ? '5, 4' : undefined,
-                }}
-              />
+        {/* Marker Clustering Layer or Unclustered Markers */}
+        {enableCluster && pluginsReady ? (
+          <ClusteredLayer
+            potholes={displayedPotholes}
+            selectedPotholeId={selectedPotholeId}
+            onSelectPothole={onSelectPothole}
+          />
+        ) : (
+          displayedPotholes.map((pothole) => {
+            const cfg = PRIORITY_CONFIG[pothole.priority_level] ?? PRIORITY_CONFIG.Low;
+            const isSelected = pothole.id === selectedPotholeId;
+            const icon = createMarkerIcon(pothole.priority_level, isSelected);
+            const pt = pothole.processed_telemetry;
 
-              <Marker
-                position={[pothole.latitude, pothole.longitude]}
-                icon={icon}
-                eventHandlers={{ click: () => onSelectPothole(pothole.id) }}
-              >
-                <Popup className="pothole-custom-popup" minWidth={260} maxWidth={300}>
-                  <div style={{ padding: '14px 14px 10px' }}>
-                    {/* Popup header */}
+            return (
+              <React.Fragment key={pothole.id}>
+                {/* Hazard zone circle */}
+                <Circle
+                  center={[pothole.latitude, pothole.longitude]}
+                  radius={Math.max(3, Math.min(12, Math.sqrt((pothole.surface_area_sqm || 0.1) / Math.PI) * 6))}
+                  pathOptions={{
+                    color: cfg.color,
+                    fillColor: cfg.color,
+                    fillOpacity: pothole.priority_level === 'Critical' ? 0.18 : 0.08,
+                    weight: 1,
+                    dashArray: pt?.is_submerged ? '5, 4' : undefined,
+                  }}
+                />
+
+                <Marker
+                  position={[pothole.latitude, pothole.longitude]}
+                  icon={icon}
+                  eventHandlers={{ click: () => onSelectPothole(pothole.id) }}
+                >
+                  <Popup className="pothole-custom-popup" minWidth={260} maxWidth={300}>
                     <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: 10,
-                        paddingBottom: 8,
-                        borderBottom: '1px solid #1E2435',
+                      dangerouslySetInnerHTML={{
+                        __html: createPopupHtml(pothole),
                       }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span
-                          style={{
-                            fontFamily: 'ui-monospace, monospace',
-                            fontWeight: 700,
-                            fontSize: 14,
-                            color: '#EEF2FF',
-                          }}
-                        >
-                          {pothole.id}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 700,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
-                            background: `${cfg.color}20`,
-                            border: `1px solid ${cfg.color}50`,
-                            color: cfg.color,
-                            padding: '2px 7px',
-                            borderRadius: 3,
-                          }}
-                        >
-                          {pothole.priority_level}
-                        </span>
-                      </div>
-                      <span
-                        style={{
-                          fontFamily: 'ui-monospace, monospace',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: cfg.color,
-                        }}
-                      >
-                        {typeof pothole.topsis_score === 'number' && !isNaN(pothole.topsis_score)
-                          ? pothole.topsis_score.toFixed(3)
-                          : 'N/A'}
-                      </span>
-                    </div>
-
-                    {/* Key metrics 2-column */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
-                      <div
-                        style={{
-                          background: '#1C2235',
-                          border: '1px solid #252D40',
-                          borderRadius: 5,
-                          padding: '7px 9px',
-                        }}
-                      >
-                        <div style={{ fontSize: 9, color: '#4D5A72', marginBottom: 3 }}>Est. Depth</div>
-                        <div
-                          style={{
-                            fontFamily: 'monospace',
-                            fontWeight: 700,
-                            fontSize: 14,
-                            color: '#EEF2FF',
-                          }}
-                        >
-                          {pt?.estimated_depth_cm} cm
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          background: '#1C2235',
-                          border: '1px solid #252D40',
-                          borderRadius: 5,
-                          padding: '7px 9px',
-                        }}
-                      >
-                        <div style={{ fontSize: 9, color: '#4D5A72', marginBottom: 3 }}>
-                          {(pothole.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null
-                            ? 'Volume (L)'
-                            : 'Crack severity'}
-                        </div>
-                        <div
-                          style={{
-                            fontFamily: 'monospace',
-                            fontWeight: 700,
-                            fontSize: 14,
-                            color:
-                              (pothole.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null
-                                ? '#60A5FA'
-                                : '#A78BFA',
-                          }}
-                        >
-                          {(pothole.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null
-                            ? `${pt.calculated_volume_liters.toFixed(1)} L`
-                            : pt?.crack_severity_index != null
-                            ? pt.crack_severity_index.toFixed(3)
-                            : '—'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Details list */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {[
-                        {
-                          icon: <Ruler style={{ width: 11, height: 11 }} />,
-                          label: 'Modality',
-                          value:
-                            pt?.detection_modality === 'sonar_submerged_acoustic'
-                              ? 'Acoustic Sonar'
-                              : 'Optical LiDAR',
-                        },
-                        {
-                          icon: <Hospital style={{ width: 11, height: 11 }} />,
-                          label: 'Hospital',
-                          value: `${pothole.dist_hospital_km} km`,
-                          valueColor: pothole.dist_hospital_km < 1.0 ? '#EF4444' : undefined,
-                        },
-                        {
-                          icon: <Navigation style={{ width: 11, height: 11 }} />,
-                          label: 'Traffic',
-                          value: `${pothole.traffic_pcu.toLocaleString()} PCU`,
-                        },
-                        {
-                          icon: <Zap style={{ width: 11, height: 11 }} />,
-                          label: 'Impact',
-                          value: pt?.dynamic_impact_confirmed ? 'Confirmed >1.5g' : 'None',
-                          valueColor: pt?.dynamic_impact_confirmed ? '#EF4444' : '#4D5A72',
-                        },
-                        {
-                          icon: <Droplets style={{ width: 11, height: 11 }} />,
-                          label: 'Surface',
-                          value: `${pothole.surface_area_sqm} m² · ${pothole.rain_detected ? 'Wet' : 'Dry'}`,
-                        },
-                        {
-                          icon: <Car style={{ width: 11, height: 11 }} />,
-                          label: 'Vehicle',
-                          value: pothole.vehicle_id,
-                        },
-                      ].map(({ icon, label, value, valueColor }) => (
-                        <div
-                          key={label}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            fontSize: 11,
-                          }}
-                        >
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#4D5A72' }}>
-                            {icon}
-                            <span style={{ color: '#8892A4' }}>{label}</span>
-                          </span>
-                          <span
-                            style={{
-                              color: valueColor ?? '#EEF2FF',
-                              fontWeight: 500,
-                              fontFamily: 'ui-monospace, monospace',
-                              fontSize: 11,
-                            }}
-                          >
-                            {value}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Footer */}
-                    <div
-                      style={{
-                        marginTop: 10,
-                        paddingTop: 7,
-                        borderTop: '1px solid #1E2435',
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: 'monospace',
-                          fontSize: 9,
-                          color: '#4D5A72',
-                        }}
-                      >
-                        {pothole.latitude.toFixed(4)}, {pothole.longitude.toFixed(4)}
-                      </span>
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            </React.Fragment>
-          );
-        })}
+                    />
+                  </Popup>
+                </Marker>
+              </React.Fragment>
+            );
+          })
+        )}
       </MapContainer>
+
+      {/* ── Map Controls & Counter (top-right) ────────────────── */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
+        {/* Toggle Clustering */}
+        <button
+          onClick={() => setEnableCluster((prev) => !prev)}
+          style={{
+            background: enableCluster ? 'rgba(59, 130, 246, 0.25)' : 'rgba(11, 14, 20, 0.88)',
+            border: `1px solid ${enableCluster ? '#3B82F6' : '#1E2435'}`,
+            borderRadius: 5,
+            padding: '5px 9px',
+            color: enableCluster ? '#60A5FA' : '#8892A4',
+            fontSize: 11,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            cursor: 'pointer',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.15s ease',
+          }}
+          title={enableCluster ? 'Disable marker clustering' : 'Enable marker clustering'}
+        >
+          <Layers style={{ width: 12, height: 12 }} />
+          <span>Clusters</span>
+        </button>
+
+        {/* Toggle Heatmap */}
+        <button
+          onClick={() => setEnableHeatmap((prev) => !prev)}
+          style={{
+            background: enableHeatmap ? 'rgba(239, 68, 68, 0.25)' : 'rgba(11, 14, 20, 0.88)',
+            border: `1px solid ${enableHeatmap ? '#EF4444' : '#1E2435'}`,
+            borderRadius: 5,
+            padding: '5px 9px',
+            color: enableHeatmap ? '#F87171' : '#8892A4',
+            fontSize: 11,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            cursor: 'pointer',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.15s ease',
+          }}
+          title={enableHeatmap ? 'Disable heatmap overlay' : 'Enable heatmap overlay'}
+        >
+          <Flame style={{ width: 12, height: 12 }} />
+          <span>Heatmap</span>
+        </button>
+
+        {/* Fit Bounds Button */}
+        <button
+          onClick={() => setFitTrigger((prev) => prev + 1)}
+          style={{
+            background: 'rgba(11, 14, 20, 0.88)',
+            border: '1px solid #1E2435',
+            borderRadius: 5,
+            padding: '5px 9px',
+            color: '#8892A4',
+            fontSize: 11,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            cursor: 'pointer',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.15s ease',
+          }}
+          title="Fit view to all visible incidents"
+        >
+          <Maximize2 style={{ width: 12, height: 12 }} />
+          <span>Fit</span>
+        </button>
+
+        {/* Hazard Counter */}
+        <div
+          style={{
+            background: 'rgba(11, 14, 20, 0.88)',
+            border: '1px solid #1E2435',
+            borderRadius: 5,
+            padding: '5px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            backdropFilter: 'blur(8px)',
+            fontSize: '11px',
+            color: '#8892A4',
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#10B981',
+              animation: 'pulse 2s infinite',
+            }}
+          />
+          <span>
+            <strong style={{ color: '#EEF2FF', fontFamily: 'monospace' }}>
+              {displayedPotholes.length}
+            </strong>
+            {' '}of{' '}
+            <strong style={{ color: '#EEF2FF', fontFamily: 'monospace' }}>
+              {potholes.length}
+            </strong>
+          </span>
+        </div>
+      </div>
 
       {/* ── Compact Legend (bottom-left) ─────────────────── */}
       <div
@@ -419,46 +566,6 @@ export const PotholeMap: React.FC<PotholeMapProps> = ({
             </span>
           </div>
         ))}
-      </div>
-
-      {/* ── Hazard Counter (top-right) ────────────────────── */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          zIndex: 1000,
-          background: 'rgba(11, 14, 20, 0.88)',
-          border: '1px solid #1E2435',
-          borderRadius: 4,
-          padding: '4px 10px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          backdropFilter: 'blur(8px)',
-          fontSize: '11px',
-          color: '#8892A4',
-        }}
-      >
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: '#10B981',
-            animation: 'pulse 2s infinite',
-          }}
-        />
-        <span>
-          <strong style={{ color: '#EEF2FF', fontFamily: 'monospace' }}>
-            {displayedPotholes.length}
-          </strong>
-          {' '}of{' '}
-          <strong style={{ color: '#EEF2FF', fontFamily: 'monospace' }}>
-            {potholes.length}
-          </strong>
-          {' '}hazards
-        </span>
       </div>
     </div>
   );
