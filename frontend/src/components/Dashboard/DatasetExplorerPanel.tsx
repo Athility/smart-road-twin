@@ -293,7 +293,7 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
           </div>
           <div style={{ marginTop: 8, fontSize: '10px', color: '#64748B', display: 'flex', alignItems: 'center', gap: 4 }}>
             <Layers style={{ width: 10, height: 10, color: '#3B82F6' }} />
-            <span>RDD2022 Ground Truth Verified</span>
+            <span>Synthetic sample images, RDD2022 annotation schema</span>
           </div>
         </div>
 

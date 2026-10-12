@@ -7,8 +7,7 @@ This document provides a transparent, file-referenced breakdown of what is ** ge
 ## 1. Summary Matrix
 
 | Subsystem | Component | Implementation Status | Code Reference |
-| :--- | :--- | :--- | :--- |
-| **Sensors** | Road surface RGB images & bounding boxes | **Real (Observed)** — Authentic RDD2022 India JPEG images & Pascal VOC XML annotations | `data/samples/`, `scripts/prepare_rdd2022.py` |
+| **Sensors** | Road surface RGB images & bounding boxes | **Synthetic Demo Samples / RDD2022 Schema** — The 5 demo sample images in `data/samples/images/` are PIL-generated synthetic road surfaces conforming to RDD2022 image dimensions; bounding boxes in `India_000045.xml` and `India_000278.xml` were adjusted for realistic footprints ($0.05\text{--}0.40\,\text{m}^2$) | `data/samples/`, `scripts/prepare_rdd2022.py` |
 | **Sensors** | LiDAR, Acoustic Sonar, IMU Z-accel, Rain, Luminance | **Simulated** — Physics-consistent stochastic models seeded with `SEED = 2026` | `services/data_generation/consistency_model.py`, `lidar_model.py`, `sonar_model.py`, `accelerometer_model.py` |
 | **GIS & Context** | GPS coordinates, Traffic (`PCU/day`), Hospital distance | **Simulated** — Deterministic Mumbai corridor waypoints, Greenshields traffic model, Haversine distance to 8 hardcoded Mumbai hospitals | `services/data_generation/location_model.py`, `traffic_model.py`, `infrastructure_model.py` |
 | **Preprocessing** | Resize, RGB normalization, letterbox utilities | **Real** — PIL/NumPy image loading and `[0, 1]` normalization | `services/cv/preprocessing.py` |
@@ -27,8 +26,8 @@ This document provides a transparent, file-referenced breakdown of what is ** ge
 ## 2. Detailed Breakdown by Domain
 
 ### 2.1 Sensors, Ground-Plane Area Calibration & Urban Context (`services/data_generation/`)
-* **What is Real:**
-  * **Visual frames and bounding boxes (`OBSERVED`):** The 5 sample images in `data/samples/images/` (`India_000045.jpg`, `India_000102.jpg`, `India_000155.jpg`, `India_000210.jpg`, `India_000278.jpg`) and their 6 bounding-box annotations in `data/samples/annotations/xmls/` come directly from the **RDD2022 India** dataset without modification.
+* **What is Observed vs. Synthetic:**
+  * **Visual frames and bounding boxes:** The 5 sample images in `data/samples/images/` (`India_000045.jpg`, `India_000102.jpg`, `India_000155.jpg`, `India_000210.jpg`, `India_000278.jpg`) are PIL-generated synthetic road defect textures conforming to RDD2022 image dimensions ($720 \times 720$). The Pascal VOC XML annotations in `data/samples/annotations/xmls/` follow the RDD2022 schema, with bounding boxes in `India_000045.xml` and `India_000278.xml` calibrated to produce realistic physical defect footprints ($0.05\text{--}0.40\,\text{m}^2$, cavity depth $2\text{--}12\,\text{cm}$) under the calibrated camera model rather than unconstrained raw pixel boxes.
 * **Pinhole Camera Ground-Plane Area Assumptions (`config/sensor_profiles.yaml`):**
   * Because RDD2022 provides 2D axis-aligned bounding boxes without per-image camera intrinsics/extrinsics or depth maps, `estimate_ground_plane_area_pinhole()` (`services/data_generation/consistency_model.py` and `services/cv/rdd2022_detector.py`) assumes a standardized forward-facing municipal inspection camera:
     * **Mounting height (`camera_height_m`)**: $1.35\text{ m}$ above the flat road plane (dashboard/windshield mount).

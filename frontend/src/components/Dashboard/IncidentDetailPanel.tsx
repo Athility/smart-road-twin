@@ -526,33 +526,37 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
           </span>
           <span
             style={{
-              fontSize: '13px',
+              fontSize: (record.detector || 'ground-truth lookup') === 'ground-truth lookup' ? '11px' : '13px',
               fontWeight: 700,
-              fontFamily: 'monospace',
-              color: '#34D399',
+              fontFamily: (record.detector || 'ground-truth lookup') === 'ground-truth lookup' ? 'sans-serif' : 'monospace',
+              color: (record.detector || 'ground-truth lookup') === 'ground-truth lookup' ? '#94A3B8' : '#34D399',
             }}
           >
-            {confidencePct}
+            {(record.detector || 'ground-truth lookup') === 'ground-truth lookup'
+              ? 'N/A (annotation, not a model prediction)'
+              : confidencePct}
           </span>
         </div>
-        <div
-          style={{
-            width: '100%',
-            height: 5,
-            background: '#161B27',
-            borderRadius: 3,
-            overflow: 'hidden',
-          }}
-        >
+        {(record.detector || 'ground-truth lookup') !== 'ground-truth lookup' && (
           <div
             style={{
-              width: confidencePct,
-              height: '100%',
-              background: '#10B981',
+              width: '100%',
+              height: 5,
+              background: '#161B27',
               borderRadius: 3,
+              overflow: 'hidden',
             }}
-          />
-        </div>
+          >
+            <div
+              style={{
+                width: confidencePct,
+                height: '100%',
+                background: '#10B981',
+                borderRadius: 3,
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── 4. LiDAR depth ─────────────────────────────────────────────────── */}
