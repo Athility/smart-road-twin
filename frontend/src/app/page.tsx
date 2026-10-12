@@ -154,7 +154,7 @@ export default function DashboardPage() {
                   fontFamily: 'ui-monospace, monospace',
                 }}
               >
-                30 cm sensor baseline · OSM tiles
+                30 cm sensor baseline · CARTO dark_all basemap
               </span>
             </div>
 

@@ -209,9 +209,9 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
       <div style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: '38%' }} />
-            <col style={{ width: '28%' }} />
-            <col style={{ width: '18%' }} />
+            <col style={{ width: '30%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '32%' }} />
             <col style={{ width: '16%' }} />
           </colgroup>
           <thead>
@@ -230,14 +230,15 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                 </span>
               </th>
               <th
-                style={thStyle('volume')}
+                style={{ ...thStyle('volume'), textAlign: 'right' }}
                 onClick={() => toggleSort('volume')}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort('volume'); } }}
                 tabIndex={0}
                 role="button"
                 aria-label="Sort by volume or crack severity"
+                title="Volume (L) for potholes / Crack severity for surface cracks"
               >
-                <span className="flex items-center gap-1">
+                <span className="flex items-center justify-end gap-1">
                   Volume (L) / Severity <SortIcon field="volume" active={sortField} asc={sortAsc} />
                 </span>
               </th>
@@ -386,12 +387,60 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                     >
                       {isPothole && pt?.calculated_volume_liters != null ? (
                         <div>
-                          <div>{pt.calculated_volume_liters.toFixed(1)} L</div>
+                          <div className="flex items-center justify-end gap-1">
+                            <span>{pt.calculated_volume_liters.toFixed(1)} L</span>
+                            {record.area_clamped && (
+                              <span
+                                style={{
+                                  fontSize: '8px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.04em',
+                                  background: 'rgba(234,179,8,0.18)',
+                                  color: '#FBBF24',
+                                  border: '1px solid rgba(234,179,8,0.4)',
+                                  padding: '1px 3px',
+                                  borderRadius: 2,
+                                }}
+                                title={
+                                  record.area_unclamped_m2 != null
+                                    ? `Area clamped from ${record.area_unclamped_m2.toFixed(3)} m² to physical bounds`
+                                    : 'Area clamped to physical bounds'
+                                }
+                              >
+                                clamped
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: '9px', color: '#4D5A72', fontWeight: 500 }}>Volume (L)</div>
                         </div>
                       ) : pt?.crack_severity_index != null ? (
                         <div>
-                          <div>{pt.crack_severity_index.toFixed(2)}</div>
+                          <div className="flex items-center justify-end gap-1">
+                            <span>{pt.crack_severity_index.toFixed(2)}</span>
+                            {record.area_clamped && (
+                              <span
+                                style={{
+                                  fontSize: '8px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.04em',
+                                  background: 'rgba(234,179,8,0.18)',
+                                  color: '#FBBF24',
+                                  border: '1px solid rgba(234,179,8,0.4)',
+                                  padding: '1px 3px',
+                                  borderRadius: 2,
+                                }}
+                                title={
+                                  record.area_unclamped_m2 != null
+                                    ? `Area clamped from ${record.area_unclamped_m2.toFixed(3)} m² to physical bounds`
+                                    : 'Area clamped to physical bounds'
+                                }
+                              >
+                                clamped
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: '9px', color: '#4D5A72', fontWeight: 500 }}>Crack severity</div>
                         </div>
                       ) : (

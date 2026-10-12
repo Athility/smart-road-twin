@@ -17,17 +17,20 @@ function KpiCell({
   unit,
   valueColor,
   accent = false,
+  tooltip,
 }: {
   label: string;
   value: string | number;
   unit?: string;
   valueColor?: string;
   accent?: boolean;
+  tooltip?: string;
 }) {
   return (
     <div
       className="flex flex-col justify-between"
       style={{ minWidth: 0, padding: '10px 16px' }}
+      title={tooltip}
     >
       <span
         style={{
@@ -219,9 +222,10 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
 
         {/* Mean volume */}
         <KpiCell
-          label="Mean / Defect"
+          label="Mean / Pothole"
           value={average_volume_liters.toFixed(1)}
           unit="L"
+          tooltip="Mean cavity volume computed across potholes (D40) only. Surface cracks (D00, D10, D20) have no volume."
         />
 
         {DIVIDER}
@@ -232,6 +236,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
           value={submerged_defects}
           unit="defects"
           valueColor={submerged_defects > 0 ? '#38BDF8' : '#4D5A72'}
+          tooltip="Defects detected with water accumulation (standing water depth > 0 mm / rain detected) triggering acoustic sonar depth sounding."
         />
 
         {DIVIDER}

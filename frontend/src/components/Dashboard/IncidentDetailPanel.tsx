@@ -42,7 +42,7 @@ function Row({
   icon: React.ReactNode;
   label: string;
   value: string | number;
-  subvalue?: string;
+  subvalue?: React.ReactNode;
   valueColor?: string;
   mono?: boolean;
 }) {
@@ -531,9 +531,35 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
             : '—'
         }
         subvalue={
-          damageClassCode === 'D40'
-            ? `Footprint: ${record.surface_area_sqm.toFixed(3)} m²`
-            : `Normalized [0–1] severity · Footprint: ${record.surface_area_sqm.toFixed(3)} m²`
+          <span className="flex items-center gap-1.5 justify-end">
+            <span>
+              {damageClassCode === 'D40'
+                ? `Footprint: ${record.surface_area_sqm.toFixed(3)} m²`
+                : `Normalized [0–1] severity · Footprint: ${record.surface_area_sqm.toFixed(3)} m²`}
+            </span>
+            {record.area_clamped && (
+              <span
+                style={{
+                  fontSize: '8px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  background: 'rgba(234,179,8,0.18)',
+                  color: '#FBBF24',
+                  border: '1px solid rgba(234,179,8,0.4)',
+                  padding: '1px 4px',
+                  borderRadius: 3,
+                }}
+                title={
+                  record.area_unclamped_m2 != null
+                    ? `Area clamped from ${record.area_unclamped_m2.toFixed(3)} m² to physical bounds`
+                    : 'Area clamped to physical ground-plane bounds'
+                }
+              >
+                clamped
+              </span>
+            )}
+          </span>
         }
         mono
         valueColor={damageClassCode === 'D40' ? '#60A5FA' : '#A78BFA'}

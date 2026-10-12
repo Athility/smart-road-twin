@@ -772,11 +772,49 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
                         {isPothole && r.processed_telemetry?.calculated_volume_liters != null ? (
                           <span style={{ color: '#60A5FA', fontWeight: 700 }} title="Volume (L)">
                             {r.processed_telemetry.calculated_volume_liters.toFixed(1)} L{' '}
+                            {r.area_clamped && (
+                              <span
+                                style={{
+                                  fontSize: '8px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.04em',
+                                  background: 'rgba(234,179,8,0.18)',
+                                  color: '#FBBF24',
+                                  border: '1px solid rgba(234,179,8,0.4)',
+                                  padding: '1px 3px',
+                                  borderRadius: 2,
+                                  marginRight: 4,
+                                }}
+                                title="Area clamped to physical bounds"
+                              >
+                                clamped
+                              </span>
+                            )}
                             <span style={{ fontSize: '9px', color: '#64748B', fontWeight: 500 }}>Volume (L)</span>
                           </span>
                         ) : r.processed_telemetry?.crack_severity_index != null ? (
                           <span style={{ color: '#A78BFA', fontWeight: 700 }} title="Crack severity">
                             {r.processed_telemetry.crack_severity_index.toFixed(3)}{' '}
+                            {r.area_clamped && (
+                              <span
+                                style={{
+                                  fontSize: '8px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.04em',
+                                  background: 'rgba(234,179,8,0.18)',
+                                  color: '#FBBF24',
+                                  border: '1px solid rgba(234,179,8,0.4)',
+                                  padding: '1px 3px',
+                                  borderRadius: 2,
+                                  marginRight: 4,
+                                }}
+                                title="Area clamped to physical bounds"
+                              >
+                                clamped
+                              </span>
+                            )}
                             <span style={{ fontSize: '9px', color: '#64748B', fontWeight: 500 }}>Crack severity</span>
                           </span>
                         ) : (
