@@ -6,6 +6,7 @@ import { SummaryPanel } from '@/components/Dashboard/SummaryPanel';
 import { MapWrapper } from '@/components/Map/MapWrapper';
 import { TelemetryTable } from '@/components/Dashboard/TelemetryTable';
 import { IncidentDetailPanel } from '@/components/Dashboard/IncidentDetailPanel';
+import { QueueOverviewPanel } from '@/components/Dashboard/QueueOverviewPanel';
 import { DatasetExplorerPanel } from '@/components/Dashboard/DatasetExplorerPanel';
 import { fetchTelemetry, FALLBACK_DATA } from '@/lib/api';
 import { TelemetryResponse, PriorityLevel, TelemetryRecord } from '@/types/telemetry';
@@ -202,7 +203,7 @@ export default function DashboardPage() {
                 {/* Right panel: incident list (top) */}
                 <div
                   style={{
-                    flex: selectedRecord ? '0 0 42%' : '1',
+                    flex: selectedRecord ? '0 0 42%' : '0 0 46%',
                     minHeight: 0,
                     display: 'flex',
                     flexDirection: 'column',
@@ -216,10 +217,10 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                {/* Right panel: incident detail (bottom, shown when selected) */}
+                {/* Right panel: bottom panel (Detail when selected, or Top-3 Queue + Priority Distribution when nothing selected) */}
                 <div
                   style={{
-                    flex: selectedRecord ? '1' : '0 0 0px',
+                    flex: 1,
                     minHeight: 0,
                     display: 'flex',
                     flexDirection: 'column',
@@ -227,7 +228,6 @@ export default function DashboardPage() {
                     border: '1px solid #1E2435',
                     borderRadius: 8,
                     overflow: 'hidden',
-                    transition: 'flex 0.2s ease',
                   }}
                 >
                   {selectedRecord ? (
@@ -263,26 +263,13 @@ export default function DashboardPage() {
                         />
                       </div>
                     </>
-                  ) : null}
+                  ) : (
+                    <QueueOverviewPanel
+                      records={telemetry.data}
+                      onSelectRecord={handleSelectPothole}
+                    />
+                  )}
                 </div>
-
-                {/* Empty detail placeholder (when nothing selected) */}
-                {!selectedRecord && (
-                  <div
-                    style={{
-                      flex: '0 0 auto',
-                      background: '#111520',
-                      border: '1px solid #1E2435',
-                      borderRadius: 8,
-                      padding: '20px 16px',
-                      textAlign: 'center',
-                    }}
-                  >
-                    <p style={{ fontSize: '11px', color: '#374163', lineHeight: 1.5 }}>
-                      Select an incident from the list above<br />or click a map marker to view details
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </>
