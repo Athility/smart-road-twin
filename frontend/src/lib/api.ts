@@ -1,4 +1,4 @@
-import { TelemetryResponse, PriorityLevel, TelemetryRecord, DatasetExplorerStats, DetectorType } from '@/types/telemetry';
+import { TelemetryResponse, PriorityLevel, TelemetryRecord, DatasetExplorerStats, DetectorType, PrioritizationResponse, WeightProfile } from '@/types/telemetry';
 
 export const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1/telemetry';
 
@@ -51,7 +51,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       dynamic_impact_confirmed: true
     },
     topsis_score: 0.6745,
-    priority_level: 'High'
+    priority_level: 'High',
+    topsis_rank: 1,
+    vikor_rank: 4,
   },
   {
     id: 'SRMD-IND-000102-00',
@@ -88,7 +90,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.5109,
-    priority_level: 'High'
+    priority_level: 'High',
+    topsis_rank: 3,
+    vikor_rank: 3,
   },
   {
     id: 'SRMD-IND-000155-00',
@@ -125,7 +129,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.2667,
-    priority_level: 'Medium'
+    priority_level: 'Medium',
+    topsis_rank: 5,
+    vikor_rank: 6,
   },
   {
     id: 'SRMD-IND-000210-00',
@@ -162,7 +168,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.2429,
-    priority_level: 'Low'
+    priority_level: 'Low',
+    topsis_rank: 4,
+    vikor_rank: 5,
   },
   {
     id: 'SRMD-IND-000278-00',
@@ -199,7 +207,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.4532,
-    priority_level: 'Medium'
+    priority_level: 'Medium',
+    topsis_rank: 2,
+    vikor_rank: 1,
   },
   {
     id: 'SRMD-IND-000278-01',
@@ -236,7 +246,9 @@ export const FALLBACK_RECORDS: TelemetryRecord[] = [
       dynamic_impact_confirmed: false
     },
     topsis_score: 0.3857,
-    priority_level: 'Medium'
+    priority_level: 'Medium',
+    topsis_rank: 6,
+    vikor_rank: 2,
   }
 ];
 
@@ -350,6 +362,28 @@ export async function fetchDatasetExplorerStats(): Promise<{ stats: DatasetExplo
   }
 }
 
+export async function fetchPrioritization(
+  profile: WeightProfile = 'safety-first'
+): Promise<{ data: PrioritizationResponse | null; isLive: boolean }> {
+  try {
+    const origin = getBackendOrigin();
+    const url = `${origin}/api/v1/prioritization?method=both&profile=${encodeURIComponent(profile)}`;
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    const json = await res.json();
+    return { data: json, isLive: true };
+  } catch (error) {
+    console.warn('Backend prioritization API unavailable:', error);
+    return { data: null, isLive: false };
+  }
+}
 
 export function getPriorityColor(level: PriorityLevel): {
   hex: string;

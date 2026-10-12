@@ -8,11 +8,42 @@ import { TelemetryTable } from '@/components/Dashboard/TelemetryTable';
 import { IncidentDetailPanel } from '@/components/Dashboard/IncidentDetailPanel';
 import { QueueOverviewPanel } from '@/components/Dashboard/QueueOverviewPanel';
 import { DatasetExplorerPanel } from '@/components/Dashboard/DatasetExplorerPanel';
-import { fetchTelemetry, FALLBACK_DATA } from '@/lib/api';
-import { TelemetryResponse, PriorityLevel, TelemetryRecord } from '@/types/telemetry';
+import { fetchTelemetry, fetchPrioritization, FALLBACK_DATA } from '@/lib/api';
+import { TelemetryResponse, PriorityLevel, TelemetryRecord, WeightProfile } from '@/types/telemetry';
+
+const FALLBACK_PROFILE_MAP: Record<
+  WeightProfile,
+  Record<string, { topsis_rank: number; topsis_score: number; vikor_rank: number; priority_level: PriorityLevel; vikor_Q: number }>
+> = {
+  'safety-first': {
+    'SRMD-IND-000045-00': { topsis_rank: 1, topsis_score: 0.571, vikor_rank: 4, priority_level: 'Critical', vikor_Q: 0.437 },
+    'SRMD-IND-000102-00': { topsis_rank: 3, topsis_score: 0.4081, vikor_rank: 3, priority_level: 'Medium', vikor_Q: 0.3842 },
+    'SRMD-IND-000155-00': { topsis_rank: 5, topsis_score: 0.3825, vikor_rank: 6, priority_level: 'Low', vikor_Q: 0.9142 },
+    'SRMD-IND-000210-00': { topsis_rank: 4, topsis_score: 0.3912, vikor_rank: 5, priority_level: 'Medium', vikor_Q: 0.6426 },
+    'SRMD-IND-000278-00': { topsis_rank: 2, topsis_score: 0.5583, vikor_rank: 1, priority_level: 'High', vikor_Q: 0.0 },
+    'SRMD-IND-000278-01': { topsis_rank: 6, topsis_score: 0.3752, vikor_rank: 2, priority_level: 'Low', vikor_Q: 0.3625 },
+  },
+  'traffic-first': {
+    'SRMD-IND-000045-00': { topsis_rank: 1, topsis_score: 0.7625, vikor_rank: 1, priority_level: 'Critical', vikor_Q: 0.0 },
+    'SRMD-IND-000102-00': { topsis_rank: 4, topsis_score: 0.4109, vikor_rank: 4, priority_level: 'Medium', vikor_Q: 0.4813 },
+    'SRMD-IND-000155-00': { topsis_rank: 5, topsis_score: 0.2646, vikor_rank: 5, priority_level: 'Low', vikor_Q: 0.8078 },
+    'SRMD-IND-000210-00': { topsis_rank: 6, topsis_score: 0.2241, vikor_rank: 6, priority_level: 'Low', vikor_Q: 1.0 },
+    'SRMD-IND-000278-00': { topsis_rank: 2, topsis_score: 0.5916, vikor_rank: 2, priority_level: 'High', vikor_Q: 0.2267 },
+    'SRMD-IND-000278-01': { topsis_rank: 3, topsis_score: 0.4506, vikor_rank: 3, priority_level: 'Medium', vikor_Q: 0.4429 },
+  },
+  'equity-first': {
+    'SRMD-IND-000045-00': { topsis_rank: 6, topsis_score: 0.3527, vikor_rank: 6, priority_level: 'Low', vikor_Q: 0.9904 },
+    'SRMD-IND-000102-00': { topsis_rank: 3, topsis_score: 0.5798, vikor_rank: 3, priority_level: 'Medium', vikor_Q: 0.3633 },
+    'SRMD-IND-000155-00': { topsis_rank: 2, topsis_score: 0.6136, vikor_rank: 4, priority_level: 'Critical', vikor_Q: 0.4512 },
+    'SRMD-IND-000210-00': { topsis_rank: 4, topsis_score: 0.5564, vikor_rank: 2, priority_level: 'Medium', vikor_Q: 0.2838 },
+    'SRMD-IND-000278-00': { topsis_rank: 1, topsis_score: 0.7358, vikor_rank: 1, priority_level: 'Critical', vikor_Q: 0.0 },
+    'SRMD-IND-000278-01': { topsis_rank: 5, topsis_score: 0.5042, vikor_rank: 5, priority_level: 'Low', vikor_Q: 0.7396 },
+  },
+};
 
 export default function DashboardPage() {
   const [telemetry, setTelemetry] = useState<TelemetryResponse>(FALLBACK_DATA);
+  const [weightProfile, setWeightProfile] = useState<WeightProfile>('safety-first');
   const [isLive, setIsLive] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [selectedPotholeId, setSelectedPotholeId] = useState<string | null>(null);
@@ -22,14 +53,60 @@ export default function DashboardPage() {
   const [activeView, setActiveView] = useState<'twin' | 'explorer'>('twin');
   const requestSeq = React.useRef(0);
 
-  const loadData = useCallback(async (showLoadingSpinner = false) => {
+  const applyPrioritizationToData = useCallback((baseData: TelemetryRecord[], profile: WeightProfile, prioResults?: { id: string; topsis_rank?: number; rank: number; vikor_rank?: number; topsis_score?: number; score?: number; priority_level: PriorityLevel; vikor_Q?: number }[]) => {
+    const prioMap = new Map<string, { topsis_rank?: number; vikor_rank?: number; topsis_score?: number; priority_level?: PriorityLevel; vikor_Q?: number }>();
+    if (prioResults && prioResults.length > 0) {
+      for (const res of prioResults) {
+        prioMap.set(res.id, {
+          topsis_rank: res.topsis_rank ?? res.rank,
+          vikor_rank: res.vikor_rank,
+          topsis_score: res.topsis_score ?? res.score,
+          priority_level: res.priority_level,
+          vikor_Q: res.vikor_Q,
+        });
+      }
+    } else {
+      const fallback = FALLBACK_PROFILE_MAP[profile];
+      if (fallback) {
+        for (const [id, val] of Object.entries(fallback)) {
+          prioMap.set(id, val);
+        }
+      }
+    }
+
+    return baseData.map((rec) => {
+      const match = prioMap.get(rec.id);
+      if (!match) return rec;
+      return {
+        ...rec,
+        topsis_rank: match.topsis_rank ?? rec.topsis_rank,
+        vikor_rank: match.vikor_rank ?? rec.vikor_rank,
+        topsis_score: match.topsis_score ?? rec.topsis_score,
+        priority_level: (match.priority_level ?? rec.priority_level) as PriorityLevel,
+        vikor_Q: match.vikor_Q ?? rec.vikor_Q,
+      };
+    });
+  }, []);
+
+  const loadData = useCallback(async (showLoadingSpinner = false, profileToUse = weightProfile) => {
     if (showLoadingSpinner) setIsRefreshing(true);
     const currentSeq = ++requestSeq.current;
     try {
-      const { data, isLive: liveStatus } = await fetchTelemetry();
+      const [telemetryRes, prioRes] = await Promise.all([
+        fetchTelemetry(),
+        fetchPrioritization(profileToUse),
+      ]);
       if (currentSeq === requestSeq.current) {
-        setTelemetry(data);
-        setIsLive(liveStatus);
+        const updatedRecords = applyPrioritizationToData(
+          telemetryRes.data.data,
+          profileToUse,
+          prioRes.data?.results
+        );
+        setTelemetry({
+          ...telemetryRes.data,
+          data: updatedRecords,
+        });
+        setIsLive(telemetryRes.isLive);
         setLastUpdated(new Date().toISOString());
       }
     } catch (err) {
@@ -37,7 +114,25 @@ export default function DashboardPage() {
     } finally {
       if (showLoadingSpinner) setIsRefreshing(false);
     }
-  }, []);
+  }, [weightProfile, applyPrioritizationToData]);
+
+  const handleSelectWeightProfile = async (profile: WeightProfile) => {
+    setWeightProfile(profile);
+    // Immediately apply locally/fetch
+    try {
+      const { data: prioRes } = await fetchPrioritization(profile);
+      setTelemetry((prev) => ({
+        ...prev,
+        data: applyPrioritizationToData(prev.data, profile, prioRes?.results),
+      }));
+    } catch (err) {
+      console.warn('Re-prioritization failed, applying fallback:', err);
+      setTelemetry((prev) => ({
+        ...prev,
+        data: applyPrioritizationToData(prev.data, profile),
+      }));
+    }
+  };
 
   useEffect(() => { loadData(true); }, [loadData]);
 
@@ -214,6 +309,8 @@ export default function DashboardPage() {
                     selectedId={selectedPotholeId}
                     onSelect={handleSelectPothole}
                     filteredPriority={filteredPriority}
+                    weightProfile={weightProfile}
+                    onSelectWeightProfile={handleSelectWeightProfile}
                   />
                 </div>
 

@@ -598,8 +598,8 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         valueColor={record.dist_hospital_km < 1.0 ? '#EF4444' : '#EEF2FF'}
       />
 
-      {/* ── 10. TOPSIS score ───────────────────────────────────────────────── */}
-      <SectionBadge number={10} title="TOPSIS Score" />
+      {/* ── 10. TOPSIS score & Multi-Criteria Ranks ───────────────────────── */}
+      <SectionBadge number={10} title="MCDM Prioritization (TOPSIS vs VIKOR)" />
       <div
         style={{
           background: config.bg,
@@ -610,6 +610,51 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         }}
       >
         <TopsisBar score={record.topsis_score} priority={record.priority_level} />
+
+        {/* Side-by-side Ranks & Disagree marker */}
+        <div
+          style={{
+            marginTop: 8,
+            paddingTop: 8,
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '11px',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span style={{ color: '#94A3B8' }}>
+              TOPSIS Rank: <strong style={{ color: config.color, fontFamily: 'monospace' }}>#{record.topsis_rank ?? '—'}</strong>
+            </span>
+            {record.vikor_rank !== undefined && (
+              <span style={{ color: '#94A3B8' }}>
+                VIKOR Rank: <strong style={{ color: '#A78BFA', fontFamily: 'monospace' }}>#{record.vikor_rank}</strong>
+              </span>
+            )}
+          </div>
+
+          {record.topsis_rank !== undefined &&
+            record.vikor_rank !== undefined &&
+            Math.abs(record.topsis_rank - record.vikor_rank) >= 2 && (
+              <span
+                style={{
+                  fontSize: '8px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  background: 'rgba(239,68,68,0.2)',
+                  color: '#F87171',
+                  border: '1px solid rgba(239,68,68,0.45)',
+                  padding: '1px 5px',
+                  borderRadius: 3,
+                }}
+                title={`Methods disagree: TOPSIS rank #${record.topsis_rank} vs VIKOR rank #${record.vikor_rank} (Δ >= 2)`}
+              >
+                ≠ Methods Disagree (Δ{Math.abs(record.topsis_rank - record.vikor_rank)})
+              </span>
+            )}
+        </div>
       </div>
 
       {/* ── 11. Priority ───────────────────────────────────────────────────── */}

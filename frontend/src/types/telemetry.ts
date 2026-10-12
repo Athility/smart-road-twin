@@ -45,6 +45,9 @@ export interface TelemetryRecord {
   area_unclamped_m2?: number;
   road_name?: string;
   road_class?: string;
+  topsis_rank?: number;
+  vikor_rank?: number;
+  vikor_Q?: number;
 }
 
 export interface PriorityCounts {
@@ -94,4 +97,49 @@ export interface DatasetExplorerStats {
   records?: TelemetryRecord[];
 }
 
+export type WeightProfile = 'safety-first' | 'traffic-first' | 'equity-first';
 
+export interface PrioritizationResultItem {
+  id: string;
+  rank: number;
+  priority_level: PriorityLevel;
+  damage_class?: string;
+  damage_label?: string;
+  road_name?: string;
+  road_class?: string;
+  surface_area_sqm?: number;
+  area_clamped?: boolean;
+  area_unclamped_m2?: number;
+  calculated_volume_liters?: number | null;
+  crack_severity_index?: number | null;
+  defect_severity_magnitude?: number;
+  traffic_pcu: number;
+  dist_hospital_km: number;
+  speed_kmh: number;
+  school_proximity_km?: number;
+  nearest_school_name?: string;
+  topsis_score?: number;
+  topsis_rank?: number;
+  vikor_S?: number;
+  vikor_R?: number;
+  vikor_Q?: number;
+  vikor_rank?: number;
+}
+
+export interface PrioritizationResponse {
+  status: string;
+  method: string;
+  profile: string;
+  weights: number[];
+  spearman_correlation: number;
+  vikor_checks?: {
+    v: number;
+    DQ: number;
+    q_gap: number;
+    acceptable_advantage: boolean;
+    acceptable_stability: boolean;
+    compromise_solution: string[];
+  };
+  total: number;
+  results: PrioritizationResultItem[];
+}
