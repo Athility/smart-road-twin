@@ -220,8 +220,11 @@ export const SensitivityPanel: React.FC = () => {
             }}
           >
             <div style={{ fontSize: '9px', color: '#64748B', fontWeight: 600 }}>RANK-1 CONCORDANCE</div>
-            <div style={{ fontSize: '14px', fontWeight: 800, fontFamily: 'monospace', color: '#34D399' }}>
-              100% Potholes
+            <div
+              style={{ fontSize: '12px', fontWeight: 800, fontFamily: 'monospace', color: '#34D399' }}
+              title="Potholes occupy 100% of Rank-1 dispatches at scale <= 15.0; at scale >= 30.0, severe alligator cracks reach Rank 1"
+            >
+              100% Potholes (Scale ≤ 15)
             </div>
           </div>
         </div>
@@ -528,15 +531,40 @@ export const SensitivityPanel: React.FC = () => {
             style={{
               background: '#161B27',
               borderRadius: 6,
-              padding: '8px 10px',
+              padding: '10px 12px',
               fontSize: '10px',
               color: '#94A3B8',
-              lineHeight: 1.4,
+              lineHeight: 1.45,
               marginTop: 10,
+              border: '1px solid #1E2435',
             }}
           >
-            <strong style={{ color: '#EEF2FF' }}>Key Empirical Observation: </strong>
-            Only the two major potholes (<code>#000045-00</code> and <code>#000278-00</code>) ever achieve Rank-1 status across all 9 profiles (100% combined rank-1 occupancy). Cracks (D00, D10, D20) never surpass depth-weighted cavity volumes.
+            <div style={{ marginBottom: 6 }}>
+              <strong style={{ color: '#EEF2FF' }}>Key Empirical Observation (Scale-Dependent): </strong>
+              At the default configured crack multiplier (<code>scale = 15.0</code>), the two major potholes (<code>#000045-00</code> and <code>#000278-00</code>) occupy 100% of Rank-1 dispatches. However, sensitivity evaluation across <code>scale ∈ {'{5, 15, 30, 60}'}</code> confirms this result is strictly scale-dependent.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 8 }}>
+              <div style={{ background: '#0F1420', padding: '6px 8px', borderRadius: 4, border: '1px solid #1E293B' }}>
+                <div style={{ color: '#64748B', fontWeight: 700, fontSize: '9px' }}>SCALE = 5.0</div>
+                <div style={{ color: '#38BDF8', fontWeight: 700 }}>0% Cracks</div>
+                <div style={{ color: '#94A3B8', fontSize: '9px' }}>100% Potholes R1</div>
+              </div>
+              <div style={{ background: '#0F1420', padding: '6px 8px', borderRadius: 4, border: '1px solid #3B82F640' }}>
+                <div style={{ color: '#60A5FA', fontWeight: 700, fontSize: '9px' }}>SCALE = 15.0 (BASE)</div>
+                <div style={{ color: '#34D399', fontWeight: 700 }}>0% Cracks</div>
+                <div style={{ color: '#94A3B8', fontSize: '9px' }}>100% Potholes R1</div>
+              </div>
+              <div style={{ background: '#0F1420', padding: '6px 8px', borderRadius: 4, border: '1px solid #F59E0B40' }}>
+                <div style={{ color: '#FCD34D', fontWeight: 700, fontSize: '9px' }}>SCALE = 30.0</div>
+                <div style={{ color: '#F59E0B', fontWeight: 700 }}>11.1% Cracks</div>
+                <div style={{ color: '#94A3B8', fontSize: '9px' }}>VIKOR R1: D20 Alligator</div>
+              </div>
+              <div style={{ background: '#0F1420', padding: '6px 8px', borderRadius: 4, border: '1px solid #EF444440' }}>
+                <div style={{ color: '#F87171', fontWeight: 700, fontSize: '9px' }}>SCALE = 60.0</div>
+                <div style={{ color: '#EF4444', fontWeight: 700 }}>50.0% Cracks</div>
+                <div style={{ color: '#94A3B8', fontSize: '9px' }}>TOPSIS & VIKOR R1</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

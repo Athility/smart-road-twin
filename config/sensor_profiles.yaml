@@ -517,6 +517,7 @@ mcdm:
   default_method: "both"
   default_profile: "safety-first"
   vikor_v: 0.5
+  crack_severity_to_magnitude_scale: 15.0
   road_class_ordinal_weights:
     LOCAL: 1
     COLLECTOR: 2

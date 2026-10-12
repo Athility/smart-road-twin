@@ -235,12 +235,12 @@ def load_calibrated_thresholds(config_path: Optional[Path] = None) -> Dict[str, 
 # Shared Decision-Matrix Row Builders
 # ============================================================================
 
-def build_mcdm_row_from_srmd(r: Dict[str, Any]) -> List[float]:
+def build_mcdm_row_from_srmd(r: Dict[str, Any], crack_scale: Optional[float] = None) -> List[float]:
     """
     Builds the canonical 6-criteria MCDM decision-matrix row from a raw SRMD JSON record.
 
     Criteria order (matches EXTENDED_CRITERIA_SPECS):
-        [0] defect_severity_magnitude  -- r["visual"]["defect_severity_magnitude"]
+        [0] defect_severity_magnitude  -- r["visual"]["defect_severity_magnitude"] (or scaled CSI if crack_scale provided)
         [1] traffic_pcu                -- r["traffic"]["pcu"]
         [2] dist_hospital_km           -- r["infrastructure"]["dist_hospital_km"]
         [3] speed_kmh                  -- r["accelerometer"]["vehicle_speed_kmh"]
@@ -250,8 +250,15 @@ def build_mcdm_row_from_srmd(r: Dict[str, Any]) -> List[float]:
     Single source-of-truth used by both the SRMD-path test and the API load
     path, ensuring identical matrices and identical Spearman rho.
     """
+    mag = float(r["visual"].get("defect_severity_magnitude", 0.0))
+    cls_code = r.get("source", {}).get("annotation_class") or r.get("visual", {}).get("damage_class", "D40")
+    if crack_scale is not None and cls_code != "D40":
+        csi = r.get("visual", {}).get("crack_severity_index")
+        if csi is not None:
+            mag = round(float(csi) * float(crack_scale), 2)
+
     return [
-        float(r["visual"]["defect_severity_magnitude"]),
+        float(mag),
         float(r["traffic"]["pcu"]),
         float(r["infrastructure"]["dist_hospital_km"]),
         float(r["accelerometer"]["vehicle_speed_kmh"]),
@@ -260,7 +267,7 @@ def build_mcdm_row_from_srmd(r: Dict[str, Any]) -> List[float]:
     ]
 
 
-def build_mcdm_row_from_store_item(item: Dict[str, Any]) -> List[float]:
+def build_mcdm_row_from_store_item(item: Dict[str, Any], crack_scale: Optional[float] = None) -> List[float]:
     """
     Builds the canonical 6-criteria MCDM decision-matrix row from a telemetry_store item.
 
@@ -280,6 +287,12 @@ def build_mcdm_row_from_store_item(item: Dict[str, Any]) -> List[float]:
     mag = pt.get("defect_severity_magnitude")
     if mag is None:
         mag = pt.get("calculated_volume_liters") or 0.0
+    cls_code = item.get("damage_class") or pt.get("damage_class", "D40")
+    if crack_scale is not None and cls_code != "D40":
+        csi = pt.get("crack_severity_index")
+        if csi is not None:
+            mag = round(float(csi) * float(crack_scale), 2)
+
     return [
         float(mag),
         float(item["traffic_pcu"]),

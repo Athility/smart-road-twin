@@ -41,9 +41,24 @@ logger = logging.getLogger(__name__)
 # Baseline chassis clearance in centimeters
 DEFAULT_CHASSIS_BASELINE_CM = 30.0
 
+def load_crack_severity_scale(config_path: Optional[Path] = None) -> float:
+    """Loads crack_severity_to_magnitude_scale from config/sensor_profiles.yaml (default 15.0)."""
+    target = config_path or (Path(__file__).resolve().parents[2] / "config" / "sensor_profiles.yaml")
+    if yaml is not None and target.exists():
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                raw = yaml.safe_load(f) or {}
+            val = raw.get("mcdm", {}).get("crack_severity_to_magnitude_scale")
+            if val is not None:
+                return float(val)
+        except Exception as exc:
+            logger.debug("Fallback to default crack severity scale (%s)", exc)
+    return 15.0
+
+
 # Scaling factor mapping bounded crack_severity_index ∈ [0, 1] to equivalent
 # structural repair magnitude (L-equivalent) for unified MCDM comparison with potholes
-CRACK_SEVERITY_TO_MAGNITUDE_SCALE = 15.0
+CRACK_SEVERITY_TO_MAGNITUDE_SCALE = load_crack_severity_scale()
 
 DEFAULT_CAMERA_CONFIG: Dict[str, Any] = {
     "model": "pinhole_ground_plane",
@@ -440,18 +455,20 @@ class PhysicalConsistencyModel:
     def compute_defect_severity_magnitude(
         damage_class: str,
         volume_liters: Optional[float],
-        crack_severity_index: Optional[float]
+        crack_severity_index: Optional[float],
+        crack_scale: Optional[float] = None
     ) -> float:
         """
         Computes the unified `defect_severity_magnitude` column for MCDM (TOPSIS/VIKOR Criterion 0):
         - For D40 (pothole): calculated_volume_liters (L).
-        - For D00/D10/D20 (cracks): crack_severity_index * CRACK_SEVERITY_TO_MAGNITUDE_SCALE (15.0 L-equivalent).
+        - For D00/D10/D20 (cracks): crack_severity_index * crack_scale (default 15.0 L-equivalent from config).
         """
+        scale = float(crack_scale) if crack_scale is not None else load_crack_severity_scale()
         cls_code = normalize_damage_class_code(damage_class)
         if cls_code == "D40":
             return round(max(0.0, float(volume_liters if volume_liters is not None else 0.0)), 2)
         csi = max(0.0, float(crack_severity_index if crack_severity_index is not None else 0.0))
-        return round(csi * CRACK_SEVERITY_TO_MAGNITUDE_SCALE, 2)
+        return round(csi * scale, 2)
 
     def derive_accelerometer_impact(
         self,
