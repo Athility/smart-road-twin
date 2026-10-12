@@ -517,15 +517,21 @@ mcdm:
     ARTERIAL: 3
     HIGH_TRAFFIC_CORRIDOR: 4
 
-  # Calibrated priority thresholds for multi-criteria relative closeness (TOPSIS C_i and VIKOR 1 - Q_i).
-  # Honesty note: These Critical/High/Medium cut-offs (0.57 / 0.45 / 0.31) were chosen empirically
-  # so the 6-record demo set spans all four priority levels (Critical, High, Medium, Low), and are
-  # NOT validated against real municipal maintenance outcomes.
+  # Priority classification for multi-criteria relative closeness (TOPSIS C_i).
+  # Configured with: (a) Batch quantile tiers (top 10% Critical, next 20% High, next 30% Medium, rest Low)
+  # and (b) Fixed absolute alarm rule (TOPSIS >= 0.60 => Critical regardless of quantile).
   priority_thresholds:
+    mode: "quantile_tiers"
+    quantile_tiers:
+      critical_top_pct: 0.10
+      high_next_pct: 0.20
+      medium_next_pct: 0.30
+    absolute_alarm_rule:
+      topsis_alarm_critical: 0.60
     critical: 0.57
     high: 0.45
     medium: 0.38
-    calibration_note: "Critical/High/Medium cut-offs were chosen so the 6-record demo set spans all priority levels, and are not validated against real maintenance outcomes."
+    calibration_note: "Priority tiers use batch quantile ranking (top 10% Critical, next 20% High, next 30% Medium, rest Low) with a fixed absolute alarm rule (TOPSIS >= 0.60 => Critical). Hand-tuned cut-offs are replaced by batch distribution quantiles and are not validated against real maintenance outcomes."
     legacy_quartiles:
       critical: 0.75
       high: 0.50

@@ -174,32 +174,61 @@ DEFAULT_WEIGHTS = np.array([0.35, 0.25, 0.25, 0.15], dtype=float)
 DEFAULT_IS_BENEFIT = np.array([True, True, False, True], dtype=bool)
 EXTENDED_IS_BENEFIT = np.array([True, True, False, True, False, True], dtype=bool)
 
-# Calibrated vs Legacy priority thresholds
+# Calibrated vs Legacy priority thresholds and quantile tiers
 LEGACY_THRESHOLDS = {"critical": 0.75, "high": 0.50, "medium": 0.25}
 CALIBRATED_THRESHOLDS = {"critical": 0.57, "high": 0.45, "medium": 0.38}
+DEFAULT_QUANTILE_CONFIG = {
+    "mode": "quantile_tiers",
+    "critical_top_pct": 0.10,
+    "high_next_pct": 0.20,
+    "medium_next_pct": 0.30,
+    "absolute_alarm_critical": 0.60
+}
 THRESHOLD_CALIBRATION_NOTE = (
-    "Critical/High/Medium cut-offs (0.57 / 0.45 / 0.38) were chosen so the 6-record demo set "
-    "spans all priority levels, and are not validated against real maintenance outcomes."
+    "Priority tiers use batch quantile ranking (top 10% Critical, next 20% High, next 30% Medium, "
+    "rest Low) with a fixed absolute alarm rule (TOPSIS >= 0.60 => Critical). "
+    "Relative cut-offs depend on batch distribution and are not validated against real maintenance outcomes."
 )
 
 
-def load_calibrated_thresholds(config_path: Optional[Path] = None) -> Dict[str, float]:
-    """Loads calibrated priority thresholds from config/sensor_profiles.yaml."""
+def load_priority_configuration(config_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Loads priority thresholds and quantile tier settings from config/sensor_profiles.yaml."""
     cfg_file = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
+    res = {
+        "thresholds": CALIBRATED_THRESHOLDS.copy(),
+        "quantile_config": DEFAULT_QUANTILE_CONFIG.copy(),
+        "calibration_note": THRESHOLD_CALIBRATION_NOTE,
+    }
     if yaml and cfg_file.exists():
         try:
             with open(cfg_file, "r", encoding="utf-8") as f:
                 loaded = yaml.safe_load(f) or {}
             pt = loaded.get("mcdm", {}).get("priority_thresholds", {})
-            if isinstance(pt, dict) and "critical" in pt:
-                return {
-                    "critical": float(pt.get("critical", 0.57)),
-                    "high": float(pt.get("high", 0.45)),
-                    "medium": float(pt.get("medium", 0.38))
-                }
+            if isinstance(pt, dict):
+                if "critical" in pt:
+                    res["thresholds"] = {
+                        "critical": float(pt.get("critical", 0.57)),
+                        "high": float(pt.get("high", 0.45)),
+                        "medium": float(pt.get("medium", 0.38))
+                    }
+                qt = pt.get("quantile_tiers", {})
+                if isinstance(qt, dict):
+                    res["quantile_config"]["critical_top_pct"] = float(qt.get("critical_top_pct", 0.10))
+                    res["quantile_config"]["high_next_pct"] = float(qt.get("high_next_pct", 0.20))
+                    res["quantile_config"]["medium_next_pct"] = float(qt.get("medium_next_pct", 0.30))
+                ar = pt.get("absolute_alarm_rule", {})
+                if isinstance(ar, dict) and "topsis_alarm_critical" in ar:
+                    res["quantile_config"]["absolute_alarm_critical"] = float(ar.get("topsis_alarm_critical", 0.60))
+                if "calibration_note" in pt:
+                    res["calibration_note"] = str(pt["calibration_note"])
         except Exception:
             pass
-    return CALIBRATED_THRESHOLDS.copy()
+    return res
+
+
+def load_calibrated_thresholds(config_path: Optional[Path] = None) -> Dict[str, float]:
+    """Loads calibrated priority thresholds from config/sensor_profiles.yaml."""
+    return load_priority_configuration(config_path)["thresholds"]
 
 
 # ============================================================================
@@ -676,7 +705,10 @@ class MCDMPrioritizationEngine:
     ):
         self.profile = profile
         self.use_calibrated_thresholds = use_calibrated_thresholds
-        self.calibrated_thresholds = load_calibrated_thresholds()
+        _p_cfg = load_priority_configuration()
+        self.calibrated_thresholds = _p_cfg["thresholds"]
+        self.quantile_config = _p_cfg["quantile_config"]
+        self.calibration_note = _p_cfg["calibration_note"]
 
         if profile is not None and weights is None:
             prof_data = get_fuzzy_bwm_profile(profile)
@@ -970,7 +1002,7 @@ class MCDMPrioritizationEngine:
 
         rho = _spearman_rank_correlation(topsis_ranks, vikor_ranks)
         use_cal = self.use_calibrated_thresholds if calibrated is None else bool(calibrated)
-        priorities = [self.classify_priority(float(s), calibrated=use_cal) for s in topsis_scores]
+        priorities = self.classify_priority_batch(topsis_scores, calibrated=use_cal)
 
         return {
             "topsis_scores": topsis_scores,
@@ -986,6 +1018,58 @@ class MCDMPrioritizationEngine:
             "weights": np.round(w, 4).tolist()
         }
 
+    def classify_priority_batch(
+        self,
+        topsis_scores: Union[List[float], np.ndarray],
+        calibrated: Optional[bool] = None,
+        quantile_config: Optional[Dict[str, float]] = None
+    ) -> List[str]:
+        """
+        Classifies a batch of TOPSIS closeness scores into priority tiers.
+        Default (when calibrated=True or self.use_calibrated_thresholds is True):
+          - (a) Batch quantile tiers: top 10% Critical, next 20% High, next 30% Medium, rest Low
+          - (b) Fixed absolute alarm rule: TOPSIS >= 0.60 => Critical regardless of quantile.
+        When calibrated=False: uses legacy quartile thresholds (0.75 / 0.50 / 0.25).
+        """
+        scores = [float(s) for s in topsis_scores]
+        n = len(scores)
+        if n == 0:
+            return []
+
+        use_cal = self.use_calibrated_thresholds if calibrated is None else bool(calibrated)
+        if not use_cal:
+            return [self.classify_priority(s, calibrated=False) for s in scores]
+
+        cfg = quantile_config or self.quantile_config
+        top_crit_pct = float(cfg.get("critical_top_pct", 0.10))
+        next_high_pct = float(cfg.get("high_next_pct", 0.20))
+        next_med_pct = float(cfg.get("medium_next_pct", 0.30))
+        alarm_thresh = float(cfg.get("absolute_alarm_critical", 0.60))
+
+        # Order descending by score
+        order = sorted(range(n), key=lambda i: scores[i], reverse=True)
+        priorities = ["Low"] * n
+
+        crit_count = max(1, round(n * top_crit_pct)) if n >= 1 else 0
+        high_count = round(n * next_high_pct)
+        med_count = round(n * next_med_pct)
+
+        for pos, idx in enumerate(order):
+            if pos < crit_count:
+                priorities[idx] = "Critical"
+            elif pos < crit_count + high_count:
+                priorities[idx] = "High"
+            elif pos < crit_count + high_count + med_count:
+                priorities[idx] = "Medium"
+            else:
+                priorities[idx] = "Low"
+
+            # (b) Fixed absolute alarm rule: TOPSIS >= 0.60 => Critical
+            if scores[idx] >= alarm_thresh:
+                priorities[idx] = "Critical"
+
+        return priorities
+
     def classify_priority(
         self,
         topsis_score: float,
@@ -993,16 +1077,23 @@ class MCDMPrioritizationEngine:
         thresholds: Optional[Dict[str, float]] = None
     ) -> str:
         """
-        Categorizes TOPSIS closeness score into municipal triage level.
+        Categorizes a scalar TOPSIS closeness score into municipal triage level.
         Supports both legacy quartile thresholds (0.75/0.50/0.25) and calibrated
-        multi-criteria thresholds (0.65/0.45/0.25 from config/sensor_profiles.yaml).
+        cut-offs with absolute alarm rule (TOPSIS >= 0.60 => Critical).
         """
+        use_cal = self.use_calibrated_thresholds if calibrated is None else bool(calibrated)
+        alarm_thresh = float(self.quantile_config.get("absolute_alarm_critical", 0.60))
+
         if thresholds is not None:
             th = thresholds
-        elif calibrated is True or (calibrated is None and self.use_calibrated_thresholds):
+        elif use_cal:
             th = self.calibrated_thresholds
         else:
             th = LEGACY_THRESHOLDS
+
+        # Fixed absolute alarm rule when calibrated mode is active
+        if use_cal and topsis_score >= alarm_thresh:
+            return "Critical"
 
         if topsis_score >= th["critical"]:
             return "Critical"

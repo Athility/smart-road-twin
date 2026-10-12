@@ -149,7 +149,7 @@ def recompute_topsis_for_all():
         item["vikor_R"] = float(all_res["vikor_R"][idx])
         item["vikor_Q"] = float(all_res["vikor_Q"][idx])
         item["vikor_rank"] = int(all_res["vikor_ranks"][idx])
-        item["priority_level"] = engine.classify_priority(score, calibrated=True)
+        item["priority_level"] = all_res["priority_levels"][idx]
 
 def process_and_store_telemetry(payload_dict: dict) -> dict:
     global _pothole_counter
@@ -716,7 +716,7 @@ def _execute_prioritization_query(
         row_entry: Dict[str, Any] = {
             "id": it["id"],
             "rank": primary_rank,
-            "priority_level": engine.classify_priority(primary_score, calibrated=True),
+            "priority_level": all_res["priority_levels"][idx],
             "damage_class": it.get("damage_class", "D40"),
             "damage_label": it.get("damage_label", "Pothole"),
             "road_name": it.get("road_name", ""),
@@ -764,6 +764,7 @@ def _execute_prioritization_query(
         },
         "criteria": MCDMPrioritizationEngine.get_criteria_specs(extended=(w.shape[0] == 6)),
         "priority_thresholds": engine.calibrated_thresholds,
+        "quantile_tiers": engine.quantile_config,
         "calibration_note": THRESHOLD_CALIBRATION_NOTE,
         "spearman_correlation": all_res["spearman_correlation"],
         "vikor_checks": {

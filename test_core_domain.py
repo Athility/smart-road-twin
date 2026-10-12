@@ -2511,6 +2511,40 @@ class TestDomainPhysicsAndThresholdHonesty(unittest.TestCase):
         tiers = {r["priority_level"] for r in prio_res["results"]}
         self.assertEqual(tiers, {"Critical", "High", "Medium", "Low"})
 
+    def test_quantile_tiers_and_absolute_alarm_rule(self):
+        """
+        Task 3: verify (a) batch quantile tiers (top 10% Critical, next 20% High,
+        next 30% Medium, rest Low) and (b) fixed absolute alarm rule (TOPSIS >= 0.60 => Critical).
+        """
+        from services.backend.app.services.mcdm_engine import MCDMPrioritizationEngine
+        eng = MCDMPrioritizationEngine(profile="safety-first", use_calibrated_thresholds=True)
+
+        # 1. Ten items with descending scores below 0.60 to test exact quantile partition
+        # top 10% (1 item) -> Critical
+        # next 20% (2 items) -> High
+        # next 30% (3 items) -> Medium
+        # rest (4 items) -> Low
+        ten_scores = [0.55, 0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10]
+        tiers_10 = eng.classify_priority_batch(ten_scores, calibrated=True)
+        self.assertEqual(tiers_10[0], "Critical")
+        self.assertEqual(tiers_10[1:3], ["High", "High"])
+        self.assertEqual(tiers_10[3:6], ["Medium", "Medium", "Medium"])
+        self.assertEqual(tiers_10[6:], ["Low", "Low", "Low", "Low"])
+
+        # 2. Fixed absolute alarm rule: any score >= 0.60 escalates to Critical regardless of quantile
+        # Even if at the bottom rank of the batch:
+        alarm_scores = [0.55, 0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.62]
+        tiers_alarm = eng.classify_priority_batch(alarm_scores, calibrated=True)
+        self.assertEqual(tiers_alarm[-1], "Critical")  # 0.62 escalated to Critical
+
+        # 3. Scalar classify_priority with absolute alarm rule
+        self.assertEqual(eng.classify_priority(0.65, calibrated=True), "Critical")
+        self.assertEqual(eng.classify_priority(0.60, calibrated=True), "Critical")
+
+        # 4. Calibration note disclosure
+        self.assertIn("quantile", eng.calibration_note.lower())
+        self.assertIn("0.60", eng.calibration_note)
+
 
 if __name__ == "__main__":
     unittest.main()

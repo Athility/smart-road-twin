@@ -168,22 +168,34 @@ On the 6-record Mumbai SRMD benchmark under the `safety-first` profile (with cla
 
 ---
 
-## 6. Threshold calibration
+## 6. Priority Thresholds & Quantile Tiers
 
-**Honesty & Methodological Disclosure**: The `Critical`, `High`, and `Medium` priority cut-offs (`0.57` / `0.45` / `0.38`) were chosen empirically so that the 6-record demonstration set spans all four priority levels (`Critical`, `High`, `Medium`, `Low`), and **are not validated against real municipal maintenance outcomes**.
+**Honesty & Methodological Disclosure**: Priority classification replaces hand-tuned fixed cut-offs with two complementary mechanisms:
+1. **(a) Batch Quantile Tiers (Default)**: Triage levels are assigned based on relative batch distribution percentiles:
+   - 🔴 **Critical**: Top 10% (rank / N < 0.10, at least top-1 when N >= 1)
+   - 🟠 **High**: Next 20% (0.10 <= rank / N < 0.30)
+   - 🟡 **Medium**: Next 30% (0.30 <= rank / N < 0.60)
+   - 🟢 **Low**: Remaining 40% (rank / N >= 0.60)
+2. **(b) Fixed Absolute Alarm Rule**: Regardless of quantile ranking, any incident with TOPSIS >= 0.60 is automatically escalated to 🔴 **Critical** to guarantee immediate municipal response for severe structural emergencies.
 
-Every response from `GET /api/v1/prioritization` and `POST /api/v1/prioritization` includes a top-level `calibration_note` field disclosing this directly to API consumers and UI clients.
+Both mechanisms are fully configurable in [`config/sensor_profiles.yaml`](../config/sensor_profiles.yaml) under `priority_thresholds`:
+```yaml
+priority_thresholds:
+  mode: "quantile_tiers"
+  quantile_tiers:
+    critical_top_pct: 0.10
+    high_next_pct: 0.20
+    medium_next_pct: 0.30
+  absolute_alarm_rule:
+    topsis_alarm_critical: 0.60
+  critical: 0.57
+  high: 0.45
+  medium: 0.38
+```
 
-### Why Naïve Quartile Thresholds ($0.75 / 0.50 / 0.25$) Compress the Demo Set
+Every response from `GET /api/v1/prioritization` and `POST /api/v1/prioritization` includes a top-level `calibration_note` field disclosing this directly to API consumers and UI clients:
+> *"Priority tiers use batch quantile ranking (top 10% Critical, next 20% High, next 30% Medium, rest Low) with a fixed absolute alarm rule (TOPSIS >= 0.60 => Critical). Hand-tuned cut-offs are replaced by batch distribution quantiles and are not validated against real maintenance outcomes."*
 
-In a 6-dimensional Euclidean space with spatial trade-offs, highway defects (`HIGH_TRAFFIC_CORRIDOR`) exhibit higher void volume, traffic PCU/day, operating speed, and road class hierarchy, whereas collector/local defects lie closer to residential schools or municipal hospitals. Because no single defect in the 6-record sample simultaneously achieves the ideal extremum on all 6 axes, the TOPSIS relative closeness $C_i^*$ under `safety-first` ranges from `0.3752` to `0.5710`. Under uncalibrated quartile thresholds ($C_i^* \ge 0.75$), the `safety-first` profile produces zero `Critical` and zero `High` incidents.
+### Why Batch Quantile Tiers Replace Static Cut-Offs
 
-### Calibrated Cut-Offs (`config/sensor_profiles.yaml`)
-
-| Priority Level | Calibrated Cut-Off (`use_calibrated_thresholds=True`) | Legacy Quartile Threshold (Default in `MCDMPrioritizationEngine()`) | 6-Record Demo Set Count (`safety-first`) |
-| :--- | :---: | :---: | :--- |
-| 🔴 **Critical** | $\ge 0.57$ | $\ge 0.75$ | **1** (`SRMD-IND-000045-00`, $C_i^* = 0.5710$) |
-| 🟠 **High** | $\ge 0.45$ | $\ge 0.50$ | **1** (`SRMD-IND-000278-00`, $C_i^* = 0.5583$) |
-| 🟡 **Medium** | $\ge 0.38$ | $\ge 0.25$ | **3** (`000102-00` 0.4081; `000210-00` 0.3912; `000155-00` 0.3825) |
-| 🟢 **Low** | $< 0.38$ | $< 0.25$ | **1** (`SRMD-IND-000278-01`, $C_i^* = 0.3752$) |
-
+In a 6-dimensional Euclidean space with spatial trade-offs, static quartile thresholds (0.75 / 0.50 / 0.25) suffer from score compression: highway defects exhibit higher void volume, traffic PCU/day, and road class hierarchy, whereas collector/local defects lie closer to schools or hospitals. Because no single defect simultaneously achieves the ideal extremum on all 6 axes, TOPSIS relative closeness C_i* typically clusters between 0.35 and 0.60. Batch quantile tiering ensures that resources are distributed proportionally across maintenance crews regardless of seasonal or corridor-wide score drift, while the absolute alarm rule ensures extreme hazards are never downgraded.
