@@ -357,13 +357,22 @@ export const PotholeMap: React.FC<PotholeMapProps> = ({
         style={{ width: '100%', height: '100%' }}
       >
         {/*
-          CARTO dark_all basemap with correct attribution
+          Esri World Dark Gray Base with Esri World Street fallback
         */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          subdomains="abcd"
-          maxZoom={20}
+          attribution='Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={16}
+          eventHandlers={{
+            tileerror: (error) => {
+              const tile = (error as any).tile as HTMLImageElement;
+              const coords = (error as any).coords;
+              if (tile && coords && !tile.dataset.fallback) {
+                tile.dataset.fallback = 'true';
+                tile.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`;
+              }
+            },
+          }}
         />
 
         <MapController

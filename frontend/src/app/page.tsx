@@ -359,7 +359,7 @@ export default function DashboardPage() {
                   fontFamily: 'ui-monospace, monospace',
                 }}
               >
-                30 cm sensor baseline · CARTO dark_all basemap
+                30 cm sensor baseline · Esri World Dark Gray Base
               </span>
             </div>
 
