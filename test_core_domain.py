@@ -2585,6 +2585,23 @@ class TestDomainPhysicsAndThresholdHonesty(unittest.TestCase):
         pothole_wins = r1["SRMD-IND-000045-00"]["total_rank_1_count"] + r1["SRMD-IND-000278-00"]["total_rank_1_count"]
         self.assertEqual(pothole_wins, 18)  # 9 topsis + 9 vikor = 18 total wins
 
+    def test_stray_and_duplicate_files_audit(self):
+        """
+        Task 5: verify docs/STRAY_FILES.md documents git ls-files audit,
+        including Dashboard casing, main.py vs services/backend, ClientOnly.tsx,
+        build_srmd vs generate_srmd, and vercel.json.
+        """
+        stray_doc = PROJECT_ROOT / "docs" / "STRAY_FILES.md"
+        self.assertTrue(stray_doc.exists(), "docs/STRAY_FILES.md must exist")
+        text = stray_doc.read_text(encoding="utf-8")
+        self.assertIn("ClientOnly.tsx", text)
+        self.assertIn("build_srmd.py", text)
+        self.assertIn("generate_srmd.py", text)
+        self.assertIn("vercel.json", text)
+        self.assertIn("Dashboard", text)
+        self.assertIn("services/backend", text)
+        self.assertIn("main.py", text)
+
 
 if __name__ == "__main__":
     unittest.main()
