@@ -524,7 +524,7 @@ mcdm:
   priority_thresholds:
     critical: 0.57
     high: 0.45
-    medium: 0.31
+    medium: 0.38
     calibration_note: "Critical/High/Medium cut-offs were chosen so the 6-record demo set spans all priority levels, and are not validated against real maintenance outcomes."
     legacy_quartiles:
       critical: 0.75

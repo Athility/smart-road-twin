@@ -54,6 +54,8 @@ class TelemetryPayload(BaseModel):
     sonar_depth_cm: float = Field(..., ge=0.0, le=500.0, description="Raw Sonar distance measurement (cm)")
     z_accel_g: float = Field(..., ge=-20.0, le=20.0, description="Z-axis accelerometer reading (g)")
     surface_area_sqm: float = Field(..., ge=0.001, le=100.0, description="Defect surface area (m^2)")
+    area_clamped: Optional[bool] = Field(False, description="Whether ground-plane area was clamped to physical bounds")
+    area_unclamped_m2: Optional[float] = Field(None, description="Raw unclamped ground-plane surface area (m^2)")
     traffic_pcu: int = Field(..., ge=0, le=200000, description="Traffic volume in Passenger Car Units (PCU/day)")
     dist_hospital_km: float = Field(..., ge=0.01, le=200.0, description="Distance to nearest hospital (km)")
     school_proximity_km: Optional[float] = Field(None, ge=0.01, le=200.0, description="Distance to nearest school (km)")
@@ -152,7 +154,7 @@ def recompute_topsis_for_all():
 def process_and_store_telemetry(payload_dict: dict) -> dict:
     global _pothole_counter
     dmg_cls = payload_dict.get("damage_class") or "D40"
-    bbox = payload_dict.get("bbox", [180.0, 260.0, 420.0, 480.0])
+    bbox = payload_dict.get("bbox", [240.0, 350.0, 380.0, 460.0])
     switcher = EnvironmentalSensorSwitching(baseline_chassis_height_cm=30.0)
     depth_res = switcher.evaluate_environment_and_measure(
         rain_detected=payload_dict["rain_detected"],
@@ -164,6 +166,8 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
         damage_class=dmg_cls,
         bbox=bbox
     )
+    depth_res["area_clamped"] = bool(payload_dict.get("area_clamped", False))
+    depth_res["area_unclamped_m2"] = float(payload_dict.get("area_unclamped_m2", payload_dict["surface_area_sqm"]))
 
     lat = float(payload_dict["latitude"])
     lon = float(payload_dict["longitude"])
@@ -188,6 +192,8 @@ def process_and_store_telemetry(payload_dict: dict) -> dict:
             "sonar_depth_cm": float(payload_dict["sonar_depth_cm"]),
             "z_accel_g": float(payload_dict["z_accel_g"]),
             "surface_area_sqm": float(payload_dict["surface_area_sqm"]),
+            "area_clamped": bool(payload_dict.get("area_clamped", False)),
+            "area_unclamped_m2": float(payload_dict.get("area_unclamped_m2", payload_dict["surface_area_sqm"])),
             "traffic_pcu": int(payload_dict["traffic_pcu"]),
             "dist_hospital_km": float(payload_dict["dist_hospital_km"]),
             "school_proximity_km": school_km,
@@ -257,6 +263,10 @@ def _load_srmd_records_into_store() -> bool:
                     r["visual"].get("defect_severity_magnitude", 0.0)
                 )
                 depth_eval["dynamic_impact_confirmed"] = r["accelerometer"]["dynamic_impact_triggered"]
+                depth_eval["area_clamped"] = bool(r["visual"].get("area_clamped", False))
+                depth_eval["area_unclamped_m2"] = float(
+                    r["visual"].get("area_unclamped_m2", r["visual"]["surface_area_sqm"])
+                )
 
                 lat = float(r["location"]["latitude"])
                 lon = float(r["location"]["longitude"])
@@ -299,8 +309,11 @@ def _load_srmd_records_into_store() -> bool:
                     "road_class_weight": encode_road_class(road_cls),
                     "detector": ACTIVE_DETECTOR,
                     "processed_telemetry": depth_eval,
+                    "area_clamped": bool(r["visual"].get("area_clamped", False)),
+                    "area_unclamped_m2": float(r["visual"].get("area_unclamped_m2", r["visual"]["surface_area_sqm"])),
                     "topsis_score": 0.0,
                     "priority_level": "Low"
+
                 }
                 telemetry_store.append(rec)
             recompute_topsis_for_all()
@@ -325,7 +338,7 @@ if not _load_srmd_records_into_store():
             "data_source": "MULTIMODAL",
             "damage_class": "D40", "damage_label": "Pothole", "confidence": 1.0,
             "image_id": "India_000045", "image_url": "/api/v1/images/India_000045.jpg",
-            "bbox": [180.0, 260.0, 420.0, 480.0],
+            "bbox": [240.0, 350.0, 380.0, 460.0],
             "road_name": "Western Express Highway, Bandra-Kalanagar Junction",
             "road_class": "HIGH_TRAFFIC_CORRIDOR"
         },
@@ -389,7 +402,7 @@ if not _load_srmd_records_into_store():
             "data_source": "MULTIMODAL",
             "damage_class": "D40", "damage_label": "Pothole", "confidence": 1.0,
             "image_id": "India_000278", "image_url": "/api/v1/images/India_000278.jpg",
-            "bbox": [220.0, 310.0, 390.0, 450.0],
+            "bbox": [270.0, 370.0, 370.0, 440.0],
             "road_name": "Western Express Highway, Jogeshwari Link Flyover",
             "road_class": "HIGH_TRAFFIC_CORRIDOR"
         },
@@ -709,6 +722,9 @@ def _execute_prioritization_query(
             "road_name": it.get("road_name", ""),
             "road_class": it.get("road_class", "ARTERIAL"),
             "road_class_weight": encode_road_class(it.get("road_class", "ARTERIAL")),
+            "surface_area_sqm": float(it.get("surface_area_sqm", 0.0)),
+            "area_clamped": bool(it.get("area_clamped", False)),
+            "area_unclamped_m2": float(it.get("area_unclamped_m2", it.get("surface_area_sqm", 0.0))),
             "calculated_volume_liters": float(raw_vol) if raw_vol is not None else None,
             "crack_severity_index": float(raw_csi) if raw_csi is not None else None,
             "defect_severity_magnitude": _get_item_severity_magnitude(it),

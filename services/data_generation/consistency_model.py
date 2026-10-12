@@ -193,6 +193,65 @@ def estimate_ground_plane_area_pinhole(
     return round(raw_area_sqm, 3)
 
 
+def estimate_ground_plane_area_pinhole_with_meta(
+    bbox: List[float],
+    image_dims: Dict[str, int],
+    damage_class: Optional[str] = "D40",
+    camera_cfg: Optional[Dict[str, Any]] = None
+) -> Tuple[float, bool, float]:
+    """
+    Like estimate_ground_plane_area_pinhole() but returns a 3-tuple:
+        (clamped_area_sqm, area_clamped: bool, area_unclamped_m2: float)
+
+    Enables callers to store area_clamped and area_unclamped_m2 provenance fields
+    alongside the final surface_area_sqm in SRMD records and API responses.
+    """
+    cfg = camera_cfg or load_camera_profile_config()
+    xmin, ymin, xmax, ymax = [float(v) for v in bbox[:4]]
+    width = float(max(1, image_dims.get("width", cfg.get("reference_image_width_px", 720))))
+    height = float(max(1, image_dims.get("height", cfg.get("reference_image_height_px", 720))))
+
+    box_w_px = max(1.0, xmax - xmin)
+    box_h_px = max(1.0, ymax - ymin)
+
+    cam_h_m = float(cfg.get("camera_height_m", 1.35))
+    pitch_rad = math.radians(float(cfg.get("pitch_deg", 22.0)))
+    hfov_rad = math.radians(float(cfg.get("hfov_deg", 62.0)))
+    vfov_rad = math.radians(float(cfg.get("vfov_deg", 48.0)))
+    min_dep_rad = math.radians(float(cfg.get("min_depression_deg", 5.0)))
+
+    fx = (width / 2.0) / math.tan(max(1e-3, hfov_rad / 2.0))
+    fy = (height / 2.0) / math.tan(max(1e-3, vfov_rad / 2.0))
+
+    y_center = height / 2.0
+    y_bottom_clamped = min(height, max(0.0, ymax))
+    alpha_bottom = math.atan2(y_bottom_clamped - y_center, fy)
+    depression_rad = max(min_dep_rad, min(math.radians(85.0), pitch_rad + alpha_bottom))
+
+    z_bottom_m = cam_h_m / math.tan(depression_rad)
+    real_width_m = (box_w_px * z_bottom_m) / fx
+    real_length_m = (box_h_px * z_bottom_m) / (fy * math.sin(depression_rad))
+    raw_area_sqm = real_width_m * real_length_m
+
+    cls_code = normalize_damage_class_code(damage_class)
+    bounds_map = cfg.get("class_area_bounds_sqm", DEFAULT_CAMERA_CONFIG["class_area_bounds_sqm"])
+    min_area, max_area = bounds_map.get(cls_code, [0.01, 1.00])
+    min_area = float(min_area)
+    max_area = float(max_area)
+
+    was_clamped = raw_area_sqm < min_area or raw_area_sqm > max_area
+    if was_clamped:
+        final_area = max(min_area, min(max_area, raw_area_sqm))
+        logger.warning(
+            "Clamped ground-plane area for class %s from %.4f m^2 to %.4f m^2 (bounds=[%.2f, %.2f], Z_bottom=%.2fm)",
+            cls_code, raw_area_sqm, final_area, min_area, max_area, z_bottom_m,
+        )
+    else:
+        final_area = raw_area_sqm
+
+    return round(final_area, 3), was_clamped, round(raw_area_sqm, 4)
+
+
 class PhysicalConsistencyModel:
     """
     Unified physical consistency engine that resolves latent defect severity
@@ -232,6 +291,23 @@ class PhysicalConsistencyModel:
             camera_cfg=self.camera_config
         )
 
+    def compute_perspective_surface_area_with_meta(
+        self,
+        bbox: List[float],
+        image_dims: Dict[str, int],
+        damage_class: Optional[str] = "D40"
+    ) -> Tuple[float, bool, float]:
+        """
+        Like compute_perspective_surface_area() but returns (area_sqm, area_clamped, area_unclamped_m2).
+        Use this when you need to persist clamping provenance in SRMD records.
+        """
+        return estimate_ground_plane_area_pinhole_with_meta(
+            bbox=bbox,
+            image_dims=image_dims,
+            damage_class=damage_class,
+            camera_cfg=self.camera_config
+        )
+
     def derive_latent_severity(
         self,
         damage_class: str,
@@ -249,8 +325,8 @@ class PhysicalConsistencyModel:
 
         # Scale severity monotonically with observed geometric area within per-class bounds
         if cls_code == "D40":
-            # Pothole area normalization: 0.01 m² (small) to 1.00 m² (clamped max)
-            area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.01) / 0.99))
+            # Pothole area normalization: 0.05 m² (small) to 0.40 m² (large realistic municipal pothole)
+            area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.05) / 0.35))
         elif cls_code == "D20":
             # Alligator area normalization: 0.05 m² to 4.00 m²
             area_factor = min(1.0, max(0.0, (surface_area_sqm - 0.05) / 3.95))
@@ -285,13 +361,9 @@ class PhysicalConsistencyModel:
         s = defect_severity
 
         if cls_code == "D40":
-            # Potholes: 4.8 cm to 18.5 cm
-            # Moderate potholes (< 1.0 m² area) produce moderate void (4.8 - 6.2 cm, borderline shock)
-            # Large severe potholes (>= 1.0 m² area) produce deep void (10.0 - 16.0 cm, confirmed impact)
-            if surface_area_sqm < 1.0:
-                depth_cm = round(4.8 + 1.8 * (s ** 1.1), 2)
-            else:
-                depth_cm = round(9.0 + 8.5 * (s ** 1.3), 2)
+            # Realistic municipal pothole depth: 2.0 cm to 12.0 cm
+            # Scales monotonically with latent defect severity s in [0.52, 0.98]
+            depth_cm = round(2.0 + 10.0 * max(0.0, min(1.0, (s - 0.44) / 0.51)), 2)
         elif cls_code == "D20":
             # Alligator fatigue: 2.0 cm to 5.5 cm
             depth_cm = round(1.8 + 4.2 * s, 2)

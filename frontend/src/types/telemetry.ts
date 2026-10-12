@@ -41,6 +41,8 @@ export interface TelemetryRecord {
   image_id?: string;
   image_url?: string;
   bbox?: number[];
+  area_clamped?: boolean;
+  area_unclamped_m2?: number;
   road_name?: string;
   road_class?: string;
 }

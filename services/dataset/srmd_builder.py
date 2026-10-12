@@ -176,10 +176,12 @@ class SRMDRecordBuilder:
         height = image_dims.get("height", 720)
 
         # 1. Surface area estimation from bounding box & pinhole ground-plane projection
-        surface_area_sqm = self.consistency.compute_perspective_surface_area(
-            bbox,
-            image_dims,
-            damage_class=damage_class
+        surface_area_sqm, area_clamped, area_unclamped_m2 = (
+            self.consistency.compute_perspective_surface_area_with_meta(
+                bbox,
+                image_dims,
+                damage_class=damage_class
+            )
         )
 
         # 2. Derive latent defect_severity ∈ [0.0, 1.0]
@@ -298,6 +300,8 @@ class SRMDRecordBuilder:
                 "image_filename": filename,
                 "image_url": f"/static/rdd2022/images/{filename}",
                 "surface_area_sqm": surface_area_sqm,
+                "area_clamped": area_clamped,
+                "area_unclamped_m2": area_unclamped_m2,
                 "defect_severity": defect_severity,
                 "calculated_volume_liters": volume_liters,
                 "crack_severity_index": crack_severity_index,
@@ -430,6 +434,8 @@ def srmd_to_telemetry_payload(record: Dict[str, Any]) -> Dict[str, Any]:
         "sonar_depth_cm": record["sonar"]["depth_cm"],
         "z_accel_g": record["accelerometer"]["z_accel_g"],
         "surface_area_sqm": record["visual"]["surface_area_sqm"],
+        "area_clamped": bool(record["visual"].get("area_clamped", False)),
+        "area_unclamped_m2": float(record["visual"].get("area_unclamped_m2", record["visual"]["surface_area_sqm"])),
         "traffic_pcu": record["traffic"]["pcu"],
         "dist_hospital_km": record["infrastructure"]["hospital_distance_km"],
         "school_proximity_km": record["infrastructure"].get("school_proximity_km", 0.5),

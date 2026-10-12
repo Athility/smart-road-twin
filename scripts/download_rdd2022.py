@@ -211,7 +211,7 @@ def setup_sample_data(samples_dir: Path = SAMPLES_DIR):
             "filename": "India_000045.jpg",
             "width": 720, "height": 720, "depth": 3,
             "objects": [
-                {"name": "D40", "xmin": 180, "ymin": 260, "xmax": 420, "ymax": 480}
+                {"name": "D40", "xmin": 240, "ymin": 350, "xmax": 380, "ymax": 460}
             ],
             "description": "Severe deep pothole void on primary carriageway",
             "class_name": "D40"
@@ -251,7 +251,7 @@ def setup_sample_data(samples_dir: Path = SAMPLES_DIR):
             "filename": "India_000278.jpg",
             "width": 720, "height": 720, "depth": 3,
             "objects": [
-                {"name": "D40", "xmin": 220, "ymin": 310, "xmax": 390, "ymax": 450},
+                {"name": "D40", "xmin": 270, "ymin": 370, "xmax": 370, "ymax": 440},
                 {"name": "D20", "xmin": 150, "ymin": 250, "xmax": 520, "ymax": 480}
             ],
             "description": "Compound defect: pothole developing within alligator crack cluster",

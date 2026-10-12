@@ -161,28 +161,29 @@ Given an $m \times n$ decision matrix $X = [x_{ij}]$ and normalized weights $w =
 
 $$\rho = 1 - \frac{6 \sum_{i=1}^{m} \left(r_i^{\text{TOPSIS}} - r_i^{\text{VIKOR}}\right)^2}{m(m^2 - 1)}$$
 
-On the 6-record Mumbai SRMD benchmark under the `safety-first` profile (with class-aware `defect_severity_magnitude`, pinhole ground-plane area calibration, and water-surface sonar/LiDAR physics), TOPSIS and VIKOR achieve $\rho = 0.6571$ on the SRMD table ($\rho = 0.5429$ on the live telemetry store where low-luminance acoustic switching is active):
-- **TOPSIS** (compensatory Euclidean closeness) ranks `SRMD-IND-000045-00` ($82.40\text{ L}$ submerged pothole on Western Express Highway) as Rank 1 ($C_0^* = 0.6190$) and `SRMD-IND-000278-00` ($20.28\text{ L}$ highway pothole $0.27\text{ km}$ from trauma hospital) as Rank 2 ($C_4^* = 0.4844$).
-- **VIKOR** ($v = 0.5$, balancing group utility $S_i$ and minimax individual regret $R_i$) ranks `SRMD-IND-000278-00` ($20.28\text{ L}$ pothole $0.27\text{ km}$ from trauma hospital and $0.27\text{ km}$ from school, minimizing both $S_4 = 0.2529$ and $R_4 = 0.2142$) as Rank 1 ($Q_4 = 0.0000$, satisfying both C1 acceptable advantage with $\Delta Q = 0.3539 \ge DQ = 0.2000$ and C2 acceptable stability) and `SRMD-IND-000045-00` as Rank 2 ($Q_0 = 0.3539$).
+On the 6-record Mumbai SRMD benchmark under the `safety-first` profile (with class-aware `defect_severity_magnitude`, pinhole ground-plane area calibration, realistic municipal pothole bounds 0.05–0.40 m², 2–12 cm depth, and water-surface sonar/LiDAR physics):
+- **Spearman Rank Correlation**: Across profiles, $\rho = 0.2000$ under `safety-first` ($v = 0.50$, due to individual regret balancing between volume and trauma proximity), $\rho = 1.0000$ under `traffic-first`, and $\rho = 0.9429$ under `equity-first`. Both SRMD JSON and API paths produce identical matrices and rank orders.
+- **TOPSIS** (compensatory Euclidean closeness) ranks `SRMD-IND-000045-00` ($23.22\text{ L}$ pothole on Western Express Highway) as Rank 1 ($C_0^* = 0.5710$) and `SRMD-IND-000278-00` ($8.29\text{ L}$ highway pothole $0.27\text{ km}$ from trauma hospital) as Rank 2 ($C_4^* = 0.5583$).
+- **VIKOR** ($v = 0.5$, balancing group utility $S_i$ and minimax individual regret $R_i$) ranks `SRMD-IND-000278-00` ($8.29\text{ L}$ pothole $0.27\text{ km}$ from trauma hospital, minimizing $S_4 = 0.2367$ and $R_4 = 0.1980$) as Rank 1 ($Q_4 = 0.0000$) and `SRMD-IND-000278-01` as Rank 2 ($Q = 0.3625$).
 
 ---
 
 ## 6. Threshold calibration
 
-**Honesty & Methodological Disclosure**: The `Critical`, `High`, and `Medium` priority cut-offs (`0.57` / `0.45` / `0.31`) were chosen empirically so that the 6-record demonstration set spans all four priority levels (`Critical`, `High`, `Medium`, `Low`), and **are not validated against real municipal maintenance outcomes**.
+**Honesty & Methodological Disclosure**: The `Critical`, `High`, and `Medium` priority cut-offs (`0.57` / `0.45` / `0.38`) were chosen empirically so that the 6-record demonstration set spans all four priority levels (`Critical`, `High`, `Medium`, `Low`), and **are not validated against real municipal maintenance outcomes**.
 
 Every response from `GET /api/v1/prioritization` and `POST /api/v1/prioritization` includes a top-level `calibration_note` field disclosing this directly to API consumers and UI clients.
 
 ### Why Naïve Quartile Thresholds ($0.75 / 0.50 / 0.25$) Compress the Demo Set
 
-In a 6-dimensional Euclidean space with spatial trade-offs, highway defects (`HIGH_TRAFFIC_CORRIDOR`) exhibit higher void volume, traffic PCU/day, operating speed, and road class hierarchy, whereas collector/local defects lie closer to residential schools or municipal hospitals. Because no single defect in the 6-record sample simultaneously achieves the ideal extremum on all 6 axes, the TOPSIS relative closeness $C_i^*$ under `safety-first` ranges from `0.2717` to `0.6190`. Under uncalibrated quartile thresholds ($C_i^* \ge 0.75$), the `safety-first` profile produces zero `Critical` and zero `High` incidents (`0.4844 < 0.50`).
+In a 6-dimensional Euclidean space with spatial trade-offs, highway defects (`HIGH_TRAFFIC_CORRIDOR`) exhibit higher void volume, traffic PCU/day, operating speed, and road class hierarchy, whereas collector/local defects lie closer to residential schools or municipal hospitals. Because no single defect in the 6-record sample simultaneously achieves the ideal extremum on all 6 axes, the TOPSIS relative closeness $C_i^*$ under `safety-first` ranges from `0.3752` to `0.5710`. Under uncalibrated quartile thresholds ($C_i^* \ge 0.75$), the `safety-first` profile produces zero `Critical` and zero `High` incidents.
 
 ### Calibrated Cut-Offs (`config/sensor_profiles.yaml`)
 
 | Priority Level | Calibrated Cut-Off (`use_calibrated_thresholds=True`) | Legacy Quartile Threshold (Default in `MCDMPrioritizationEngine()`) | 6-Record Demo Set Count (`safety-first`) |
 | :--- | :---: | :---: | :--- |
-| 🔴 **Critical** | $\ge 0.57$ | $\ge 0.75$ | **1** (`SRMD-IND-000045-00`, $C_i^* = 0.6190$) |
-| 🟠 **High** | $\ge 0.45$ | $\ge 0.50$ | **1** (`SRMD-IND-000278-00`, $C_i^* = 0.4844$) |
-| 🟡 **Medium** | $\ge 0.31$ | $\ge 0.25$ | **2** (`SRMD-IND-000155-00`, $C_i^* = 0.3363$; `SRMD-IND-000102-00`, $C_i^* = 0.3117$) |
-| 🟢 **Low** | $< 0.31$ | $< 0.25$ | **2** (`SRMD-IND-000210-00`, $C_i^* = 0.3067$; `SRMD-IND-000278-01`, $C_i^* = 0.2717$) |
+| 🔴 **Critical** | $\ge 0.57$ | $\ge 0.75$ | **1** (`SRMD-IND-000045-00`, $C_i^* = 0.5710$) |
+| 🟠 **High** | $\ge 0.45$ | $\ge 0.50$ | **1** (`SRMD-IND-000278-00`, $C_i^* = 0.5583$) |
+| 🟡 **Medium** | $\ge 0.38$ | $\ge 0.25$ | **3** (`000102-00` 0.4081; `000210-00` 0.3912; `000155-00` 0.3825) |
+| 🟢 **Low** | $< 0.38$ | $< 0.25$ | **1** (`SRMD-IND-000278-01`, $C_i^* = 0.3752$) |
 

@@ -152,6 +152,8 @@ def flatten_record_for_tabular(record: Dict[str, Any]) -> Dict[str, Any]:
         "bbox_xmax": float(bbox[2]) if len(bbox) > 2 else 0.0,
         "bbox_ymax": float(bbox[3]) if len(bbox) > 3 else 0.0,
         "surface_area_sqm": float(vis.get("surface_area_sqm", 0.0)),
+        "area_clamped": bool(vis.get("area_clamped", False)),
+        "area_unclamped_m2": float(vis.get("area_unclamped_m2", vis.get("surface_area_sqm", 0.0))),
         "calculated_volume_liters": float(vis["calculated_volume_liters"]) if vis.get("calculated_volume_liters") is not None else None,
         "crack_severity_index": float(vis["crack_severity_index"]) if vis.get("crack_severity_index") is not None else None,
         "defect_severity_magnitude": float(vis.get("defect_severity_magnitude", 0.0)),

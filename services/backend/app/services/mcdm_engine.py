@@ -176,9 +176,9 @@ EXTENDED_IS_BENEFIT = np.array([True, True, False, True, False, True], dtype=boo
 
 # Calibrated vs Legacy priority thresholds
 LEGACY_THRESHOLDS = {"critical": 0.75, "high": 0.50, "medium": 0.25}
-CALIBRATED_THRESHOLDS = {"critical": 0.57, "high": 0.45, "medium": 0.31}
+CALIBRATED_THRESHOLDS = {"critical": 0.57, "high": 0.45, "medium": 0.38}
 THRESHOLD_CALIBRATION_NOTE = (
-    "Critical/High/Medium cut-offs (0.57 / 0.45 / 0.31) were chosen so the 6-record demo set "
+    "Critical/High/Medium cut-offs (0.57 / 0.45 / 0.38) were chosen so the 6-record demo set "
     "spans all priority levels, and are not validated against real maintenance outcomes."
 )
 
@@ -195,7 +195,7 @@ def load_calibrated_thresholds(config_path: Optional[Path] = None) -> Dict[str, 
                 return {
                     "critical": float(pt.get("critical", 0.57)),
                     "high": float(pt.get("high", 0.45)),
-                    "medium": float(pt.get("medium", 0.31))
+                    "medium": float(pt.get("medium", 0.38))
                 }
         except Exception:
             pass
