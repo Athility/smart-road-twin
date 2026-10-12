@@ -8,6 +8,7 @@ import { TelemetryTable } from '@/components/Dashboard/TelemetryTable';
 import { IncidentDetailPanel } from '@/components/Dashboard/IncidentDetailPanel';
 import { QueueOverviewPanel } from '@/components/Dashboard/QueueOverviewPanel';
 import { DatasetExplorerPanel } from '@/components/Dashboard/DatasetExplorerPanel';
+import { SensitivityPanel } from '@/components/Dashboard/SensitivityPanel';
 import { fetchTelemetry, fetchPrioritization, FALLBACK_DATA } from '@/lib/api';
 import { TelemetryResponse, PriorityLevel, TelemetryRecord, WeightProfile } from '@/types/telemetry';
 
@@ -50,7 +51,7 @@ export default function DashboardPage() {
   const [filteredPriority, setFilteredPriority] = useState<PriorityLevel | 'All'>('All');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'twin' | 'explorer'>('twin');
+  const [activeView, setActiveView] = useState<'twin' | 'explorer' | 'sensitivity'>('twin');
   const requestSeq = React.useRef(0);
 
   const applyPrioritizationToData = useCallback((baseData: TelemetryRecord[], profile: WeightProfile, prioResults?: { id: string; topsis_rank?: number; rank: number; vikor_rank?: number; topsis_score?: number; score?: number; priority_level: PriorityLevel; vikor_Q?: number }[]) => {
@@ -189,7 +190,9 @@ export default function DashboardPage() {
           boxSizing: 'border-box',
         }}
       >
-        {activeView === 'explorer' ? (
+        {activeView === 'sensitivity' ? (
+          <SensitivityPanel />
+        ) : activeView === 'explorer' ? (
           <DatasetExplorerPanel
             records={telemetry.data}
             detector={telemetry.detector}

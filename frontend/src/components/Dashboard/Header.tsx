@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { RefreshCw, Radio, Map, Database } from 'lucide-react';
+import { RefreshCw, Radio, Map, Database, Sliders } from 'lucide-react';
 
 interface HeaderProps {
   isLive: boolean;
@@ -11,8 +11,8 @@ interface HeaderProps {
   autoRefresh: boolean;
   onToggleAutoRefresh: () => void;
   totalDefects: number;
-  activeView?: 'twin' | 'explorer';
-  onViewChange?: (view: 'twin' | 'explorer') => void;
+  activeView?: 'twin' | 'explorer' | 'sensitivity';
+  onViewChange?: (view: 'twin' | 'explorer' | 'sensitivity') => void;
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -145,6 +145,19 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Database style={{ width: 12, height: 12 }} />
               <span>Dataset Explorer</span>
+            </button>
+            <button
+              onClick={() => onViewChange('sensitivity')}
+              className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all"
+              style={{
+                background: activeView === 'sensitivity' ? '#7C3AED' : 'transparent',
+                color: activeView === 'sensitivity' ? '#EFF6FF' : '#8892A4',
+                border: activeView === 'sensitivity' ? '1px solid #8B5CF6' : '1px solid transparent',
+                cursor: 'pointer',
+              }}
+            >
+              <Sliders style={{ width: 12, height: 12 }} />
+              <span>Sensitivity</span>
             </button>
           </div>
         )}

@@ -817,3 +817,15 @@ async def post_custom_prioritization(req: CustomPrioritizationRequest):
         raise HTTPException(status_code=400, detail=str(e))
     return _execute_prioritization_query(method=req.method, profile_info=prof, v=req.v)
 
+
+@app.get("/api/v1/sensitivity")
+async def get_sensitivity():
+    """
+    Returns MCDM multi-criteria sensitivity and ranking stability experiment data.
+    """
+    sens_path = os.path.join(os.path.dirname(__file__), "runs", "experiments", "sensitivity.json")
+    if os.path.exists(sens_path):
+        with open(sens_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    raise HTTPException(status_code=404, detail="Sensitivity experiments have not been executed yet.")
+
