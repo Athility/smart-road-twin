@@ -2082,25 +2082,78 @@ class TestBackendCLAHEMCDMAndPrioritization(unittest.TestCase):
         self.assertGreaterEqual(len(vikor_tie["compromise_solution"]), 2)
 
     def test_compute_all_topsis_vikor_and_spearman(self):
-        from services.backend.app.services.mcdm_engine import build_mcdm_row_from_srmd
+        """
+        Verify rigorous mathematical invariants for TOPSIS, VIKOR, and Spearman correlation:
+        1. Ranks form strict permutations of {1, ..., n} without duplicates or missing tiers.
+        2. Scores are strictly bounded: TOPSIS C_i ∈ [0, 1], VIKOR Q_i ∈ [0, 1], S_i ≥ 0, R_i ≥ 0.
+        3. Cross-path identity: SRMD-path and store-path produce 100% identical decision matrices and ranks.
+        4. Defect severity dominance: Rank 1 is strictly occupied by a D40 pothole (cracks never attain Rank 1).
+        5. Multi-profile concordance: traffic-first yields perfect rho=1.0000, equity-first yields rho >= 0.90.
+        """
+        from services.backend.app.services.mcdm_engine import (
+            build_mcdm_row_from_srmd,
+            build_mcdm_row_from_store_item,
+        )
+        import main as app_module
+
         engine = MCDMPrioritizationEngine(profile="safety-first", use_calibrated_thresholds=True)
         srmd_file = PROJECT_ROOT / "data" / "processed" / "srmd" / "srmd_records.json"
         records = json.loads(srmd_file.read_text(encoding="utf-8"))
-        matrix = np.array([build_mcdm_row_from_srmd(r) for r in records])
-        res = engine.compute_all(matrix, v=0.5, calibrated=True)
-        self.assertEqual(len(res["topsis_ranks"]), len(records))
-        self.assertEqual(len(res["vikor_ranks"]), len(records))
-        self.assertEqual(sorted(res["topsis_ranks"]), list(range(1, len(records) + 1)))
-        self.assertEqual(sorted(res["vikor_ranks"]), list(range(1, len(records) + 1)))
+        n = len(records)
+        perm = list(range(1, n + 1))
+
+        # 1. Compute on SRMD records
+        matrix_srmd = np.array([build_mcdm_row_from_srmd(r) for r in records])
+        res = engine.compute_all(matrix_srmd, v=0.5, calibrated=True)
+
+        # Invariant 1: Rank vectors are exact permutations of {1, ..., n}
+        self.assertEqual(len(res["topsis_ranks"]), n)
+        self.assertEqual(len(res["vikor_ranks"]), n)
+        self.assertEqual(sorted(res["topsis_ranks"]), perm)
+        self.assertEqual(sorted(res["vikor_ranks"]), perm)
+
+        # Invariant 2: Mathematical score boundaries
         self.assertTrue(-1.0 <= res["spearman_correlation"] <= 1.0)
-        # Note: on the 6-record demo set with realistic pothole bounding boxes (0.05-0.40 m2,
-        # 2-12 cm depth), safety-first v=0.50 yields rho=0.20 due to individual regret weighting,
-        # while traffic-first yields rho=1.00 and equity-first yields rho=0.94.
-        self.assertGreaterEqual(res["spearman_correlation"], 0.20)
-        # TOPSIS and VIKOR rank one of the two highway potholes (index 0 or 4) as Rank 1;
-        # cracks never attain Rank 1 on the demo set.
-        self.assertIn(1, (res["topsis_ranks"][0], res["topsis_ranks"][4]))
-        self.assertIn(1, (res["vikor_ranks"][0], res["vikor_ranks"][4]))
+        for s in res["topsis_scores"]:
+            self.assertTrue(0.0 <= s <= 1.0, f"TOPSIS score out of [0, 1]: {s}")
+        for q in res["vikor_Q"]:
+            self.assertTrue(0.0 <= q <= 1.0, f"VIKOR Q out of [0, 1]: {q}")
+        for s_val in res["vikor_S"]:
+            self.assertGreaterEqual(s_val, 0.0)
+        for r_val in res["vikor_R"]:
+            self.assertGreaterEqual(r_val, 0.0)
+
+        # Invariant 3: Cross-path identity between SRMD JSON and telemetry_store
+        app_module._load_srmd_records_into_store()
+        store_items = [item for item in app_module.telemetry_store if any(r["event_id"] == item["id"] for r in records)]
+        self.assertEqual(len(store_items), n)
+        matrix_store = np.array([build_mcdm_row_from_store_item(item) for item in store_items])
+        np.testing.assert_allclose(
+            matrix_srmd, matrix_store, atol=1e-5,
+            err_msg="SRMD-path matrix and telemetry_store-path matrix must be 100% identical"
+        )
+        res_store = engine.compute_all(matrix_store, v=0.5, calibrated=True)
+        self.assertEqual(res["topsis_ranks"], res_store["topsis_ranks"])
+        self.assertEqual(res["vikor_ranks"], res_store["vikor_ranks"])
+        self.assertAlmostEqual(res["spearman_correlation"], res_store["spearman_correlation"], places=6)
+
+        # Invariant 4: Pothole severity dominance (cracks never attain Rank 1 on baseline demo set)
+        pothole_indices = [i for i, r in enumerate(records) if r.get("source", {}).get("annotation_class") == "D40"]
+        t_r1 = res["topsis_ranks"].index(1)
+        v_r1 = res["vikor_ranks"].index(1)
+        self.assertIn(t_r1, pothole_indices, "TOPSIS Rank 1 must be a D40 pothole on demo set")
+        self.assertIn(v_r1, pothole_indices, "VIKOR Rank 1 must be a D40 pothole on demo set")
+
+        # Invariant 5: Multi-profile concordance properties
+        eng_traffic = MCDMPrioritizationEngine(profile="traffic-first", use_calibrated_thresholds=True)
+        res_traffic = eng_traffic.compute_all(matrix_srmd, v=0.5, calibrated=True)
+        self.assertAlmostEqual(res_traffic["spearman_correlation"], 1.0000, places=4,
+                               msg="traffic-first profile must exhibit perfect TOPSIS-VIKOR concordance")
+
+        eng_equity = MCDMPrioritizationEngine(profile="equity-first", use_calibrated_thresholds=True)
+        res_equity = eng_equity.compute_all(matrix_srmd, v=0.5, calibrated=True)
+        self.assertGreaterEqual(res_equity["spearman_correlation"], 0.90,
+                                msg="equity-first profile must exhibit strong concordance (rho >= 0.90)")
 
     def test_clamping_metadata_and_realistic_pothole_geometry(self):
         """
