@@ -52,11 +52,11 @@ export const Header: React.FC<HeaderProps> = ({
       }}
     >
       <div
-        className="mx-auto flex items-center justify-between gap-4 px-5"
-        style={{ maxWidth: '1600px', height: '52px' }}
+        className="mx-auto flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 px-4 py-2 sm:py-0"
+        style={{ maxWidth: '1600px', minHeight: '52px' }}
       >
         {/* ── Brand ────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
           {/* Logo mark */}
           <div
             className="flex-shrink-0 flex items-center justify-center rounded"
@@ -84,13 +84,13 @@ export const Header: React.FC<HeaderProps> = ({
                 Smart Road Digital Twin
               </h1>
               <span
-                className="hidden sm:inline-flex items-center gap-1 flex-shrink-0"
+                className="hidden lg:inline-flex items-center gap-1 flex-shrink-0"
                 style={{
                   fontSize: '10px',
                   fontWeight: 600,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  color: '#8892A4',
+                  color: '#94A3B8',
                 }}
               >
                 <span
@@ -99,13 +99,13 @@ export const Header: React.FC<HeaderProps> = ({
                     width: 4,
                     height: 4,
                     borderRadius: 2,
-                    background: '#374163',
+                    background: '#60A5FA',
                   }}
                 />
                 Mumbai Western Corridor
               </span>
             </div>
-            <p style={{ fontSize: '10px', color: '#4D5A72', marginTop: 1 }}>
+            <p className="hidden md:block" style={{ fontSize: '10px', color: '#8892A4', marginTop: 1 }}>
               Detector: ground-truth lookup · AI depth estimation · TOPSIS prioritization
             </p>
           </div>
@@ -114,10 +114,12 @@ export const Header: React.FC<HeaderProps> = ({
         {/* ── View Switcher Tabs ──────────────────────────────── */}
         {onViewChange && (
           <div
-            className="flex items-center p-0.5 rounded-lg"
+            className="flex items-center p-0.5 rounded-lg overflow-x-auto"
             style={{
               background: '#111520',
               border: '1px solid #1E2435',
+              maxWidth: '100%',
+              scrollbarWidth: 'none',
             }}
           >
             <button

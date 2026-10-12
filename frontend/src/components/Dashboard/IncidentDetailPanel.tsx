@@ -168,6 +168,20 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'pipeline'>('overview');
+  const panelRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!record) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    // Autofocus panel on open for immediate keyboard interaction
+    panelRef.current?.focus();
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [record, onClose]);
 
   if (!record) {
     return (
@@ -176,14 +190,14 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         style={{
           flex: 1,
           padding: '32px 20px',
-          color: '#4D5A72',
+          color: '#8892A4',
         }}
       >
         <Activity style={{ width: 32, height: 32, marginBottom: 12, opacity: 0.4 }} />
-        <p style={{ fontSize: '13px', fontWeight: 500, color: '#4D5A72', marginBottom: 6 }}>
+        <p style={{ fontSize: '13px', fontWeight: 500, color: '#94A3B8', marginBottom: 6 }}>
           No incident selected
         </p>
-        <p style={{ fontSize: '11px', color: '#374163', lineHeight: 1.5 }}>
+        <p style={{ fontSize: '11px', color: '#8892A4', lineHeight: 1.5 }}>
           Click a marker on the map or<br />a row in the incident list
         </p>
       </div>
@@ -224,11 +238,17 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
 
   return (
     <div
-      className="slide-in-right flex flex-col"
+      ref={panelRef}
+      role="dialog"
+      aria-modal="false"
+      aria-label={`Incident detail for ${record.id}`}
+      tabIndex={-1}
+      className="slide-in-right flex flex-col focus:outline-none"
       style={{
         flex: 1,
         overflowY: 'auto',
         padding: '0 16px 20px',
+        outline: 'none',
       }}
     >
       {/* ── Top Header with ID & Deselect ───────────────────────────────── */}

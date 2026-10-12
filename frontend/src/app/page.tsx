@@ -1,17 +1,40 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { Header } from '@/components/Dashboard/Header';
 import { SummaryPanel } from '@/components/Dashboard/SummaryPanel';
 import { MapWrapper } from '@/components/Map/MapWrapper';
 import { TelemetryTable } from '@/components/Dashboard/TelemetryTable';
 import { IncidentDetailPanel } from '@/components/Dashboard/IncidentDetailPanel';
 import { QueueOverviewPanel } from '@/components/Dashboard/QueueOverviewPanel';
-import { DatasetExplorerPanel } from '@/components/Dashboard/DatasetExplorerPanel';
-import { SensitivityPanel } from '@/components/Dashboard/SensitivityPanel';
 import { ScenarioSimulationBar, SimulationScenario } from '@/components/Dashboard/ScenarioSimulationBar';
 import { fetchTelemetry, fetchPrioritization, FALLBACK_DATA } from '@/lib/api';
 import { TelemetryResponse, PriorityLevel, TelemetryRecord, WeightProfile } from '@/types/telemetry';
+
+const DatasetExplorerPanel = dynamic(
+  () => import('@/components/Dashboard/DatasetExplorerPanel').then((m) => m.DatasetExplorerPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div style={{ padding: 40, textAlign: 'center', color: '#94A3B8' }}>
+        Loading Dataset Explorer...
+      </div>
+    ),
+  }
+);
+
+const SensitivityPanel = dynamic(
+  () => import('@/components/Dashboard/SensitivityPanel').then((m) => m.SensitivityPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div style={{ padding: 40, textAlign: 'center', color: '#94A3B8' }}>
+        Loading Sensitivity Engine...
+      </div>
+    ),
+  }
+);
 
 const FALLBACK_PROFILE_MAP: Record<
   WeightProfile,
@@ -54,7 +77,8 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'twin' | 'explorer' | 'sensitivity'>('twin');
   const [simulationScenario, setSimulationScenario] = useState<SimulationScenario>('dry');
-  const requestSeq = React.useRef(0);
+  const requestSeq = useRef(0);
+  const lastPayloadKeyRef = useRef<string>('');
 
   const applyPrioritizationToData = useCallback((baseData: TelemetryRecord[], profile: WeightProfile, prioResults?: { id: string; topsis_rank?: number; rank: number; vikor_rank?: number; topsis_score?: number; score?: number; priority_level: PriorityLevel; vikor_Q?: number }[]) => {
     const prioMap = new Map<string, { topsis_rank?: number; vikor_rank?: number; topsis_score?: number; priority_level?: PriorityLevel; vikor_Q?: number }>();
@@ -105,11 +129,29 @@ export default function DashboardPage() {
           profileToUse,
           prioRes.data?.results
         );
-        setTelemetry({
-          ...telemetryRes.data,
-          data: updatedRecords,
+
+        // Compute fingerprint to avoid unnecessary re-render cascades
+        const payloadKey = JSON.stringify({
+          recs: updatedRecords.map((r) => [
+            r.id,
+            r.timestamp,
+            r.topsis_score,
+            r.topsis_rank,
+            r.vikor_rank,
+            r.processed_telemetry?.estimated_depth_cm,
+          ]),
+          live: telemetryRes.isLive,
         });
-        setIsLive(telemetryRes.isLive);
+
+        // Only setState when payload changed or explicitly requested
+        if (showLoadingSpinner || payloadKey !== lastPayloadKeyRef.current) {
+          lastPayloadKeyRef.current = payloadKey;
+          setTelemetry({
+            ...telemetryRes.data,
+            data: updatedRecords,
+          });
+          setIsLive(telemetryRes.isLive);
+        }
         setLastUpdated(new Date().toISOString());
       }
     } catch (err) {

@@ -122,6 +122,18 @@ function createMarkerIcon(priority: PriorityLevel, isSelected: boolean): L.DivIc
   });
 }
 
+const markerIconCache = new Map<string, L.DivIcon>();
+
+function getMemoizedMarkerIcon(priority: PriorityLevel, isSelected: boolean): L.DivIcon {
+  const key = `${priority}_${isSelected}`;
+  let icon = markerIconCache.get(key);
+  if (!icon) {
+    icon = createMarkerIcon(priority, isSelected);
+    markerIconCache.set(key, icon);
+  }
+  return icon;
+}
+
 function createPopupHtml(pothole: TelemetryRecord): string {
   const cfg = PRIORITY_CONFIG[pothole.priority_level] ?? PRIORITY_CONFIG.Low;
   const pt = pothole.processed_telemetry;
@@ -227,7 +239,7 @@ function ClusteredLayer({
 
     potholes.forEach((pothole) => {
       const isSelected = pothole.id === selectedPotholeId;
-      const icon = createMarkerIcon(pothole.priority_level, isSelected);
+      const icon = getMemoizedMarkerIcon(pothole.priority_level, isSelected);
       const marker = L.marker([pothole.latitude, pothole.longitude], {
         icon,
         priorityLevel: pothole.priority_level,
@@ -376,7 +388,7 @@ export const PotholeMap: React.FC<PotholeMapProps> = ({
           displayedPotholes.map((pothole) => {
             const cfg = PRIORITY_CONFIG[pothole.priority_level] ?? PRIORITY_CONFIG.Low;
             const isSelected = pothole.id === selectedPotholeId;
-            const icon = createMarkerIcon(pothole.priority_level, isSelected);
+            const icon = getMemoizedMarkerIcon(pothole.priority_level, isSelected);
             const pt = pothole.processed_telemetry;
 
             return (

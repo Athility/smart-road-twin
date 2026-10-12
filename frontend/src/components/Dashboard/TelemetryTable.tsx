@@ -324,12 +324,29 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                   <tr
                     key={record.id}
                     onClick={() => onSelect(record.id)}
+                    tabIndex={0}
+                    role="row"
+                    aria-selected={isSelected}
+                    aria-label={`Incident ${record.id}, ${record.priority_level} priority`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelect(record.id);
+                      }
+                    }}
                     style={{
                       cursor: 'pointer',
                       background: isSelected ? 'rgba(59,130,246,0.06)' : 'transparent',
                       boxShadow: isSelected ? 'inset 3px 0 0 #3B82F6' : 'none',
                       borderBottom: '1px solid #1A2030',
                       transition: 'background 0.12s',
+                      outline: 'none',
+                    }}
+                    onFocus={(e) => {
+                      (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? 'rgba(59,130,246,0.12)' : '#161B27';
+                    }}
+                    onBlur={(e) => {
+                      (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? 'rgba(59,130,246,0.06)' : 'transparent';
                     }}
                     onMouseOver={(e) => {
                       if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = '#161B27';
@@ -365,7 +382,7 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                         <span
                           style={{
                             fontSize: '10px',
-                            color: '#4D5A72',
+                            color: '#8892A4',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
