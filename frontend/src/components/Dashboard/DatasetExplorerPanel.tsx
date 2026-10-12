@@ -15,7 +15,22 @@ import {
   Sparkles,
   RefreshCw,
   ExternalLink,
+  BarChart2,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  ZAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Cell,
+  Legend,
+} from 'recharts';
 
 interface DatasetExplorerPanelProps {
   records?: TelemetryRecord[];
@@ -47,6 +62,11 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [fetchedIsLive, setFetchedIsLive] = useState(false);
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+  const [chartsMounted, setChartsMounted] = useState(false);
+
+  useEffect(() => {
+    setChartsMounted(true);
+  }, []);
 
   const loadStats = async () => {
     if (onRefresh) {
@@ -647,6 +667,221 @@ export const DatasetExplorerPanel: React.FC<DatasetExplorerPanelProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ── ROW 3.5: EXPLORER ANALYTICAL CHARTS (CLASS DIST, LIDAR VS SONAR SCATTER, PRIORITY HISTOGRAM) ── */}
+      {chartsMounted && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+            gap: 12,
+          }}
+        >
+          {/* Chart 1: RDD2022 Class Distribution */}
+          <div
+            style={{
+              background: '#111520',
+              border: '1px solid #1E2435',
+              borderRadius: 8,
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+              <div className="flex items-center gap-2">
+                <BarChart2 style={{ width: 14, height: 14, color: '#60A5FA' }} />
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#8892A4' }}>
+                  Class Distribution
+                </span>
+              </div>
+              <span style={{ fontSize: '9px', color: '#64748B', fontFamily: 'monospace' }}>
+                RDD2022 Ground-Truth
+              </span>
+            </div>
+
+            <div style={{ width: '100%', height: 210 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { name: 'D00 Longitudinal', code: 'D00', count: stats.d00_count, color: '#60A5FA' },
+                    { name: 'D10 Transverse',   code: 'D10', count: stats.d10_count, color: '#38BDF8' },
+                    { name: 'D20 Alligator',    code: 'D20', count: stats.d20_count, color: '#F59E0B' },
+                    { name: 'D40 Pothole',      code: 'D40', count: stats.d40_count, color: '#EF4444' },
+                  ]}
+                  margin={{ top: 8, right: 10, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2435" vertical={false} />
+                  <XAxis dataKey="code" tick={{ fill: '#8892A4', fontSize: 10 }} axisLine={{ stroke: '#1E2435' }} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: '#8892A4', fontSize: 10 }} axisLine={{ stroke: '#1E2435' }} tickLine={false} />
+                  <RechartsTooltip
+                    contentStyle={{ background: '#0F1420', border: '1px solid #2563EB40', borderRadius: 6, fontSize: '11px', color: '#EEF2FF' }}
+                    formatter={(val: any, name: any, item: any) => [`${val} records (${Math.round(((val as number) / total) * 100)}%)`, item.payload.name]}
+                  />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {[
+                      { code: 'D00', color: '#60A5FA' },
+                      { code: 'D10', color: '#38BDF8' },
+                      { code: 'D20', color: '#F59E0B' },
+                      { code: 'D40', color: '#EF4444' },
+                    ].map((entry) => (
+                      <Cell key={entry.code} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+              <span>D00: {stats.d00_count} · D10: {stats.d10_count}</span>
+              <span>D20: {stats.d20_count} · D40: {stats.d40_count}</span>
+            </div>
+          </div>
+
+          {/* Chart 2: LiDAR vs Sonar Scatter Plot */}
+          <div
+            style={{
+              background: '#111520',
+              border: '1px solid #1E2435',
+              borderRadius: 8,
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+              <div className="flex items-center gap-2">
+                <Waves style={{ width: 14, height: 14, color: '#38BDF8' }} />
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#8892A4' }}>
+                  LiDAR vs Sonar Depth Scatter
+                </span>
+              </div>
+              <span style={{ fontSize: '9px', color: '#C084FC', fontFamily: 'monospace' }}>
+                Simulated
+              </span>
+            </div>
+
+            <div style={{ width: '100%', height: 210 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2435" />
+                  <XAxis
+                    type="number"
+                    dataKey="lidar"
+                    name="LiDAR Depth"
+                    unit=" cm"
+                    domain={[30, 42]}
+                    tick={{ fill: '#8892A4', fontSize: 10 }}
+                    axisLine={{ stroke: '#1E2435' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="sonar"
+                    name="Sonar Depth"
+                    unit=" cm"
+                    domain={[30, 42]}
+                    tick={{ fill: '#8892A4', fontSize: 10 }}
+                    axisLine={{ stroke: '#1E2435' }}
+                    tickLine={false}
+                  />
+                  <ZAxis range={[50, 90]} />
+                  <RechartsTooltip
+                    cursor={{ strokeDasharray: '3 3' }}
+                    contentStyle={{ background: '#0F1420', border: '1px solid #2563EB40', borderRadius: 6, fontSize: '11px', color: '#EEF2FF' }}
+                    formatter={(val: any, name: any) => [`${val} cm`, name]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '10px' }} />
+                  <Scatter
+                    name="Dry Road"
+                    data={(stats.records || sharedRecords || [])
+                      .filter((r) => !r.rain_detected)
+                      .map((r) => ({
+                        id: r.id,
+                        lidar: Number(r.lidar_depth_cm.toFixed(2)),
+                        sonar: Number(r.sonar_depth_cm.toFixed(2)),
+                      }))}
+                    fill="#3B82F6"
+                  />
+                  <Scatter
+                    name="Rain / Wet Surface"
+                    data={(stats.records || sharedRecords || [])
+                      .filter((r) => Boolean(r.rain_detected))
+                      .map((r) => ({
+                        id: r.id,
+                        lidar: Number(r.lidar_depth_cm.toFixed(2)),
+                        sonar: Number(r.sonar_depth_cm.toFixed(2)),
+                      }))}
+                    fill="#F59E0B"
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: 4 }}>
+              X: Optical LiDAR (cm) vs Y: Ultrasonic Sonar (cm) · Wet surfaces introduce acoustic sound-speed offset
+            </div>
+          </div>
+
+          {/* Chart 3: Priority Histogram */}
+          <div
+            style={{
+              background: '#111520',
+              border: '1px solid #1E2435',
+              borderRadius: 8,
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+              <div className="flex items-center gap-2">
+                <Sparkles style={{ width: 14, height: 14, color: '#EF4444' }} />
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#8892A4' }}>
+                  Priority Tier Histogram
+                </span>
+              </div>
+              <span style={{ fontSize: '9px', color: '#64748B', fontFamily: 'monospace' }}>
+                Quantile Tiers
+              </span>
+            </div>
+
+            <div style={{ width: '100%', height: 210 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { name: 'Critical', count: pDist.Critical, color: '#EF4444' },
+                    { name: 'High',     count: pDist.High,     color: '#F97316' },
+                    { name: 'Medium',   count: pDist.Medium,   color: '#F59E0B' },
+                    { name: 'Low',      count: pDist.Low,      color: '#22C55E' },
+                  ]}
+                  margin={{ top: 8, right: 10, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E2435" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fill: '#8892A4', fontSize: 10 }} axisLine={{ stroke: '#1E2435' }} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: '#8892A4', fontSize: 10 }} axisLine={{ stroke: '#1E2435' }} tickLine={false} />
+                  <RechartsTooltip
+                    contentStyle={{ background: '#0F1420', border: '1px solid #2563EB40', borderRadius: 6, fontSize: '11px', color: '#EEF2FF' }}
+                    formatter={(val: any, name: any, item: any) => [`${val} items (${Math.round(((val as number) / total) * 100)}%)`, item.payload.name]}
+                  />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {[
+                      { name: 'Critical', color: '#EF4444' },
+                      { name: 'High',     color: '#F97316' },
+                      { name: 'Medium',   color: '#F59E0B' },
+                      { name: 'Low',      color: '#22C55E' },
+                    ].map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748B', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+              <span>Crit: {pDist.Critical} · High: {pDist.High}</span>
+              <span>Med: {pDist.Medium} · Low: {pDist.Low}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── ROW 4: DATASET RECORDS INSPECTION TABLE ────────────────────────── */}
       {stats.records && stats.records.length > 0 && (
