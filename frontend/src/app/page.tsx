@@ -390,6 +390,7 @@ export default function DashboardPage() {
                   selectedPotholeId={selectedPotholeId}
                   onSelectPothole={handleSelectPothole}
                   filteredPriority={filteredPriority}
+                  weightProfile={weightProfile}
                 />
               </div>
 
@@ -466,6 +467,7 @@ export default function DashboardPage() {
                         <IncidentDetailPanel
                           record={selectedRecord}
                           onClose={() => setSelectedPotholeId(null)}
+                          weightProfile={weightProfile}
                         />
                       </div>
                     </>

@@ -415,7 +415,9 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                             >
                               <span
                                 style={{
-                                  display: 'inline-block',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
                                   fontSize: '9px',
                                   fontWeight: 700,
                                   letterSpacing: '0.08em',
@@ -427,7 +429,27 @@ export const TelemetryTable: React.FC<TelemetryTableProps> = ({
                                   borderRadius: 3,
                                 }}
                               >
-                                {record.priority_level}
+                                <span>{record.priority_level}</span>
+                                <span
+                                  style={{
+                                    fontSize: '8px',
+                                    fontWeight: 600,
+                                    opacity: 0.85,
+                                    padding: '0 3px',
+                                    borderRadius: 2,
+                                    background: 'rgba(255,255,255,0.08)',
+                                    color: '#CBD5E1',
+                                    letterSpacing: '0.02em',
+                                    textTransform: 'none',
+                                  }}
+                                  title={`Priority tier derived under ${weightProfile || 'safety-first'} weight profile`}
+                                >
+                                  {weightProfile === 'traffic-first'
+                                    ? 'Traffic-First'
+                                    : weightProfile === 'equity-first'
+                                    ? 'Equity-First'
+                                    : 'Safety-First'}
+                                </span>
                               </span>
                               {methodsDisagree && (
                                 <span

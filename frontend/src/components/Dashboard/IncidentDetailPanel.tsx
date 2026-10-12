@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { TelemetryRecord } from '@/types/telemetry';
+import { TelemetryRecord, WeightProfile } from '@/types/telemetry';
 import { getInspectionImageUrl } from '@/lib/api';
 import {
   X,
@@ -22,6 +22,7 @@ import { PipelineFlowPanel } from './PipelineFlowPanel';
 interface IncidentDetailPanelProps {
   record: TelemetryRecord | null;
   onClose: () => void;
+  weightProfile?: WeightProfile;
 }
 
 // Priority config map
@@ -165,6 +166,7 @@ function TopsisBar({ score, priority }: { score: number; priority: string }) {
 export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
   record,
   onClose,
+  weightProfile,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'pipeline'>('overview');
@@ -756,18 +758,40 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
           <Sparkles style={{ width: 14, height: 14, color: config.color }} />
           <span style={{ fontSize: '11px', fontWeight: 600, color: '#EEF2FF' }}>Dispatch Urgency</span>
         </div>
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: config.color,
-            fontFamily: 'monospace',
-          }}
-        >
-          {record.priority_level} Priority
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: config.color,
+              fontFamily: 'monospace',
+            }}
+          >
+            {record.priority_level} Priority
+          </span>
+          <span
+            style={{
+              fontSize: '9px',
+              fontWeight: 700,
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              color: '#CBD5E1',
+              padding: '2px 6px',
+              borderRadius: 3,
+              fontFamily: 'sans-serif',
+              letterSpacing: '0.02em',
+            }}
+            title={`Active weight profile: ${weightProfile || 'safety-first'}`}
+          >
+            {weightProfile === 'traffic-first'
+              ? 'Traffic-First'
+              : weightProfile === 'equity-first'
+              ? 'Equity-First'
+              : 'Safety-First'}
+          </span>
+        </div>
       </div>
 
           {/* ── Geographic Context Footer ──────────────────────────────────────── */}

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import dynamic from 'next/dynamic';
-import { TelemetryRecord, PriorityLevel } from '@/types/telemetry';
+import { TelemetryRecord, PriorityLevel, WeightProfile } from '@/types/telemetry';
 
 // Dynamically import Leaflet map with SSR disabled
 const PotholeMap = dynamic(
@@ -23,6 +23,7 @@ interface MapWrapperProps {
   selectedPotholeId: string | null;
   onSelectPothole: (id: string) => void;
   filteredPriority: PriorityLevel | 'All';
+  weightProfile?: WeightProfile;
 }
 
 export const MapWrapper: React.FC<MapWrapperProps> = (props) => {

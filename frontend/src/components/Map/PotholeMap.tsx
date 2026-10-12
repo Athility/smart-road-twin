@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
-import { TelemetryRecord, PriorityLevel } from '@/types/telemetry';
+import { TelemetryRecord, PriorityLevel, WeightProfile } from '@/types/telemetry';
 import {
   Layers,
   Flame,
@@ -15,6 +15,7 @@ interface PotholeMapProps {
   selectedPotholeId: string | null;
   onSelectPothole: (id: string) => void;
   filteredPriority: PriorityLevel | 'All';
+  weightProfile?: WeightProfile;
 }
 
 const PRIORITY_CONFIG = {
@@ -134,7 +135,7 @@ function getMemoizedMarkerIcon(priority: PriorityLevel, isSelected: boolean): L.
   return icon;
 }
 
-function createPopupHtml(pothole: TelemetryRecord): string {
+function createPopupHtml(pothole: TelemetryRecord, weightProfile?: WeightProfile): string {
   const cfg = PRIORITY_CONFIG[pothole.priority_level] ?? PRIORITY_CONFIG.Low;
   const pt = pothole.processed_telemetry;
   const isPothole = (pothole.damage_class || 'D40') === 'D40' && pt?.calculated_volume_liters != null;
@@ -156,12 +157,21 @@ function createPopupHtml(pothole: TelemetryRecord): string {
     ? '<span style="font-size:8px;font-weight:700;color:#FBBF24;background:rgba(234,179,8,0.18);border:1px solid rgba(234,179,8,0.4);padding:1px 3px;border-radius:2px;margin-left:4px;">CLAMPED</span>'
     : '';
 
+  const profileLabel = weightProfile === 'traffic-first'
+    ? 'Traffic-First'
+    : weightProfile === 'equity-first'
+    ? 'Equity-First'
+    : 'Safety-First';
+
   return `
     <div style="padding: 12px 14px 10px; font-family: system-ui, -apple-system, sans-serif; min-width: 250px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #1E2435;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-family: ui-monospace, monospace; font-weight: 700; font-size: 13px; color: #EEF2FF;">${pothole.id}</span>
-          <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: ${cfg.color}20; border: 1px solid ${cfg.color}50; color: ${cfg.color}; padding: 2px 7px; border-radius: 3px;">${pothole.priority_level}</span>
+          <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: ${cfg.color}20; border: 1px solid ${cfg.color}50; color: ${cfg.color}; padding: 2px 7px; border-radius: 3px; display: inline-flex; align-items: center; gap: 4px;">
+            <span>${pothole.priority_level}</span>
+            <span style="opacity: 0.85; font-size: 8px; font-weight: 600; text-transform: none; background: rgba(255,255,255,0.12); padding: 0 4px; border-radius: 2px; color: #EEF2FF;">${profileLabel}</span>
+          </span>
         </div>
         <span style="font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; color: ${cfg.color};">${topsisStr}</span>
       </div>
@@ -195,10 +205,12 @@ function ClusteredLayer({
   potholes,
   selectedPotholeId,
   onSelectPothole,
+  weightProfile,
 }: {
   potholes: TelemetryRecord[];
   selectedPotholeId: string | null;
   onSelectPothole: (id: string) => void;
+  weightProfile?: WeightProfile;
 }) {
   const map = useMap();
 
@@ -249,7 +261,7 @@ function ClusteredLayer({
         onSelectPothole(pothole.id);
       });
 
-      marker.bindPopup(createPopupHtml(pothole), {
+      marker.bindPopup(createPopupHtml(pothole, weightProfile), {
         className: 'pothole-custom-popup',
         minWidth: 260,
         maxWidth: 300,
@@ -263,7 +275,7 @@ function ClusteredLayer({
     return () => {
       map.removeLayer(clusterGroup);
     };
-  }, [map, potholes, selectedPotholeId, onSelectPothole]);
+  }, [map, potholes, selectedPotholeId, onSelectPothole, weightProfile]);
 
   return null;
 }
@@ -312,6 +324,7 @@ export const PotholeMap: React.FC<PotholeMapProps> = ({
   selectedPotholeId,
   onSelectPothole,
   filteredPriority,
+  weightProfile,
 }) => {
   const [enableCluster, setEnableCluster] = useState<boolean>(true);
   const [enableHeatmap, setEnableHeatmap] = useState<boolean>(false);
@@ -392,6 +405,7 @@ export const PotholeMap: React.FC<PotholeMapProps> = ({
             potholes={displayedPotholes}
             selectedPotholeId={selectedPotholeId}
             onSelectPothole={onSelectPothole}
+            weightProfile={weightProfile}
           />
         ) : (
           displayedPotholes.map((pothole) => {
@@ -423,7 +437,7 @@ export const PotholeMap: React.FC<PotholeMapProps> = ({
                   <Popup className="pothole-custom-popup" minWidth={260} maxWidth={300}>
                     <div
                       dangerouslySetInnerHTML={{
-                        __html: createPopupHtml(pothole),
+                        __html: createPopupHtml(pothole, weightProfile),
                       }}
                     />
                   </Popup>
