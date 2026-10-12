@@ -9,6 +9,7 @@ import { IncidentDetailPanel } from '@/components/Dashboard/IncidentDetailPanel'
 import { QueueOverviewPanel } from '@/components/Dashboard/QueueOverviewPanel';
 import { DatasetExplorerPanel } from '@/components/Dashboard/DatasetExplorerPanel';
 import { SensitivityPanel } from '@/components/Dashboard/SensitivityPanel';
+import { ScenarioSimulationBar, SimulationScenario } from '@/components/Dashboard/ScenarioSimulationBar';
 import { fetchTelemetry, fetchPrioritization, FALLBACK_DATA } from '@/lib/api';
 import { TelemetryResponse, PriorityLevel, TelemetryRecord, WeightProfile } from '@/types/telemetry';
 
@@ -52,6 +53,7 @@ export default function DashboardPage() {
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'twin' | 'explorer' | 'sensitivity'>('twin');
+  const [simulationScenario, setSimulationScenario] = useState<SimulationScenario>('dry');
   const requestSeq = React.useRef(0);
 
   const applyPrioritizationToData = useCallback((baseData: TelemetryRecord[], profile: WeightProfile, prioResults?: { id: string; topsis_rank?: number; rank: number; vikor_rank?: number; topsis_score?: number; score?: number; priority_level: PriorityLevel; vikor_Q?: number }[]) => {
@@ -135,6 +137,60 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSelectScenario = (scenario: SimulationScenario) => {
+    setSimulationScenario(scenario);
+    setTelemetry((prev) => {
+      const isRain = scenario === 'rain';
+      const isNight = scenario === 'night';
+      const isSonar = isRain || isNight;
+      const meanLux = isNight ? 12.5 : isRain ? 65.0 : 120.0;
+      const activeModality = isSonar ? 'sonar_submerged_acoustic' : 'lidar_optical_tof';
+
+      const updated = prev.data.map((rec) => {
+        const rawDepth = isSonar ? rec.sonar_depth_cm : rec.lidar_depth_cm;
+        const effectiveDepth = Math.max(0.5, Number((rawDepth - 30.0).toFixed(2)));
+        const isPothole = (rec.damage_class || 'D40') === 'D40';
+        const newVolume = isPothole
+          ? Number(((2 / 3) * rec.surface_area_sqm * (effectiveDepth / 100) * 1000).toFixed(2))
+          : null;
+
+        return {
+          ...rec,
+          rain_detected: isRain,
+          mean_luminance: meanLux,
+          processed_telemetry: {
+            ...rec.processed_telemetry,
+            detection_modality: activeModality,
+            is_submerged: isRain,
+            estimated_depth_cm: effectiveDepth,
+            calculated_volume_liters: newVolume,
+          },
+        };
+      });
+
+      const potholeVols = updated
+        .map((r) => r.processed_telemetry?.calculated_volume_liters)
+        .filter((v): v is number => v !== null && v !== undefined);
+      const totalVol = Number(potholeVols.reduce((a, b) => a + b, 0).toFixed(2));
+      const avgVol = potholeVols.length > 0 ? Number((totalVol / potholeVols.length).toFixed(2)) : 0;
+      const submergedCount = updated.filter((r) => r.processed_telemetry?.is_submerged).length;
+
+      return {
+        ...prev,
+        data: updated,
+        summary: {
+          ...prev.summary,
+          total_volume_liters: totalVol,
+          average_volume_liters: avgVol,
+          weather_state: isRain ? 'Heavy Monsoon Rain' : isNight ? 'Clear Night (Dark)' : 'Clear Daylight',
+          is_raining: isRain,
+          submerged_defects: submergedCount,
+          average_luminance: meanLux,
+        },
+      };
+    });
+  };
+
   useEffect(() => { loadData(true); }, [loadData]);
 
   useEffect(() => {
@@ -212,6 +268,14 @@ export default function DashboardPage() {
               summary={telemetry.summary}
               selectedPriority={filteredPriority}
               onSelectPriority={(priority) => setFilteredPriority(priority)}
+            />
+
+            {/* ── Scenario Simulation Control Bar (Dry / Rain / Night) ── */}
+            <ScenarioSimulationBar
+              scenario={simulationScenario}
+              onSelectScenario={handleSelectScenario}
+              activeSensor={simulationScenario === 'dry' ? 'lidar' : 'sonar'}
+              recordCount={telemetry.data.length}
             />
 
             {/* ── Map Label Row ────────────────────────────────── */}
