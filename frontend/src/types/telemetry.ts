@@ -143,3 +143,24 @@ export interface PrioritizationResponse {
   total: number;
   results: PrioritizationResultItem[];
 }
+
+export interface PreprocessPreviewResponse {
+  status: string;
+  image_name: string;
+  width: number;
+  height: number;
+  clip_limit: number;
+  tile_grid: [number, number];
+  backend: string;
+  original_url: string;
+  original_image: string;
+  clahe_image: string;
+  original_image_base64?: string;
+  clahe_image_base64?: string;
+  metrics: {
+    original_mean_luminance: number;
+    clahe_mean_luminance: number;
+    original_contrast_std: number;
+    clahe_contrast_std: number;
+  };
+}

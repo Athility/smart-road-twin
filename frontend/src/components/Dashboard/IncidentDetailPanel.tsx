@@ -17,6 +17,7 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
+import { PipelineFlowPanel } from './PipelineFlowPanel';
 
 interface IncidentDetailPanelProps {
   record: TelemetryRecord | null;
@@ -166,6 +167,7 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
   onClose,
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'pipeline'>('overview');
 
   if (!record) {
     return (
@@ -229,14 +231,14 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         padding: '0 16px 20px',
       }}
     >
-      {/* ── Top Header with DATA SOURCE badge ───────────────────────────────── */}
+      {/* ── Top Header with ID & Deselect ───────────────────────────────── */}
       <div
         className="flex items-start justify-between"
         style={{
           paddingTop: 12,
           paddingBottom: 10,
           borderBottom: '1px solid #1E2435',
-          marginBottom: 10,
+          marginBottom: 8,
         }}
       >
         <div>
@@ -279,15 +281,72 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         </button>
       </div>
 
-      {/* ── DATA SOURCE PROVENANCE BADGE ──────────────────────────────────── */}
+      {/* ── Sub-navigation Tabs: Overview vs Pipeline Flow ───────────── */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
-          border: '1px solid #2563EB40',
+          display: 'flex',
+          gap: 4,
+          background: '#0B0E14',
+          padding: 3,
           borderRadius: 6,
-          padding: '8px 10px',
+          border: '1px solid #1E2435',
           marginBottom: 12,
         }}
+      >
+        <button
+          onClick={() => setActiveTab('overview')}
+          style={{
+            flex: 1,
+            padding: '5px 8px',
+            fontSize: '11px',
+            fontWeight: 700,
+            borderRadius: 4,
+            border: 'none',
+            cursor: 'pointer',
+            background: activeTab === 'overview' ? '#1E293B' : 'transparent',
+            color: activeTab === 'overview' ? '#60A5FA' : '#64748B',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          Incident Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('pipeline')}
+          style={{
+            flex: 1,
+            padding: '5px 8px',
+            fontSize: '11px',
+            fontWeight: 700,
+            borderRadius: 4,
+            border: 'none',
+            cursor: 'pointer',
+            background: activeTab === 'pipeline' ? '#1E293B' : 'transparent',
+            color: activeTab === 'pipeline' ? '#60A5FA' : '#64748B',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 5,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Layers style={{ width: 12, height: 12 }} />
+          Pipeline Flow (L1-L5)
+        </button>
+      </div>
+
+      {activeTab === 'pipeline' ? (
+        <PipelineFlowPanel record={record} />
+      ) : (
+        <>
+          {/* ── DATA SOURCE PROVENANCE BADGE ──────────────────────────────────── */}
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
+              border: '1px solid #2563EB40',
+              borderRadius: 6,
+              padding: '8px 10px',
+              marginBottom: 12,
+            }}
       >
         <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
           <div className="flex items-center gap-1.5">
@@ -687,18 +746,20 @@ export const IncidentDetailPanel: React.FC<IncidentDetailPanelProps> = ({
         </span>
       </div>
 
-      {/* ── Geographic Context Footer ──────────────────────────────────────── */}
-      <div style={{ marginTop: 4, paddingTop: 8, borderTop: '1px solid #1E2435' }}>
-        <div className="flex items-center justify-between" style={{ fontSize: '10px', color: '#64748B' }}>
-          <span className="flex items-center gap-1">
-            <MapPin style={{ width: 10, height: 10 }} />
-            {record.latitude.toFixed(4)}, {record.longitude.toFixed(4)}
-          </span>
-          <span style={{ fontFamily: 'monospace' }}>
-            {record.road_name || 'Mumbai Metropolitan Corridor'}
-          </span>
-        </div>
-      </div>
+          {/* ── Geographic Context Footer ──────────────────────────────────────── */}
+          <div style={{ marginTop: 4, paddingTop: 8, borderTop: '1px solid #1E2435' }}>
+            <div className="flex items-center justify-between" style={{ fontSize: '10px', color: '#64748B' }}>
+              <span className="flex items-center gap-1">
+                <MapPin style={{ width: 10, height: 10 }} />
+                {record.latitude.toFixed(4)}, {record.longitude.toFixed(4)}
+              </span>
+              <span style={{ fontFamily: 'monospace' }}>
+                {record.road_name || 'Mumbai Metropolitan Corridor'}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

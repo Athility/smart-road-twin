@@ -1,4 +1,4 @@
-import { TelemetryResponse, PriorityLevel, TelemetryRecord, DatasetExplorerStats, DetectorType, PrioritizationResponse, WeightProfile } from '@/types/telemetry';
+import { TelemetryResponse, PriorityLevel, TelemetryRecord, DatasetExplorerStats, DetectorType, PrioritizationResponse, WeightProfile, PreprocessPreviewResponse } from '@/types/telemetry';
 
 export const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1/telemetry';
 
@@ -381,6 +381,31 @@ export async function fetchPrioritization(
     return { data: json, isLive: true };
   } catch (error) {
     console.warn('Backend prioritization API unavailable:', error);
+    return { data: null, isLive: false };
+  }
+}
+
+export async function fetchPreprocessPreview(
+  imageName: string,
+  clipLimit = 2.0,
+  tileGridSize = 8
+): Promise<{ data: PreprocessPreviewResponse | null; isLive: boolean }> {
+  try {
+    const origin = getBackendOrigin();
+    const url = `${origin}/api/v1/preprocess/preview/${encodeURIComponent(imageName)}?clip_limit=${clipLimit}&tile_grid_size=${tileGridSize}`;
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    const json = await res.json();
+    return { data: json, isLive: true };
+  } catch (error) {
+    console.warn('Preprocess preview API unavailable:', error);
     return { data: null, isLive: false };
   }
 }
