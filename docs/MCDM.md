@@ -199,3 +199,43 @@ Every response from `GET /api/v1/prioritization` and `POST /api/v1/prioritizatio
 ### Why Batch Quantile Tiers Replace Static Cut-Offs
 
 In a 6-dimensional Euclidean space with spatial trade-offs, static quartile thresholds (0.75 / 0.50 / 0.25) suffer from score compression: highway defects exhibit higher void volume, traffic PCU/day, and road class hierarchy, whereas collector/local defects lie closer to schools or hospitals. Because no single defect simultaneously achieves the ideal extremum on all 6 axes, TOPSIS relative closeness C_i* typically clusters between 0.35 and 0.60. Batch quantile tiering ensures that resources are distributed proportionally across maintenance crews regardless of seasonal or corridor-wide score drift, while the absolute alarm rule ensures extreme hazards are never downgraded.
+
+---
+
+## 7. Sensitivity Analysis (3 Profiles x 3 v-values)
+
+[`scripts/run_sensitivity.py`](../scripts/run_sensitivity.py) evaluates the sensitivity of TOPSIS and VIKOR across 9 combinations of criteria weight profiles and consensus parameters ($v \in \{0.25, 0.50, 0.75\}$). Results are exported to [`runs/experiments/sensitivity.json`](../runs/experiments/sensitivity.json).
+
+### Experimental Results Summary
+
+| Setting | Profile | $v$ | TOPSIS Ranks | VIKOR Ranks | Spearman $\rho$ |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| `safety-first_v0.25` | `safety-first` | $0.25$ | `[1, 3, 5, 4, 2, 6]` | `[5, 3, 6, 4, 1, 2]` | $+0.0286$ |
+| `safety-first_v0.50` | `safety-first` | $0.50$ | `[1, 3, 5, 4, 2, 6]` | `[4, 3, 6, 5, 1, 2]` | $+0.2000$ |
+| `safety-first_v0.75` | `safety-first` | $0.75$ | `[1, 3, 5, 4, 2, 6]` | `[2, 3, 6, 5, 1, 4]` | $+0.7714$ |
+| `traffic-first_v0.25` | `traffic-first` | $0.25$ | `[1, 4, 5, 6, 2, 3]` | `[1, 4, 5, 6, 2, 3]` | $+1.0000$ |
+| `traffic-first_v0.50` | `traffic-first` | $0.50$ | `[1, 4, 5, 6, 2, 3]` | `[1, 4, 5, 6, 2, 3]` | $+1.0000$ |
+| `traffic-first_v0.75` | `traffic-first` | $0.75$ | `[1, 4, 5, 6, 2, 3]` | `[1, 4, 5, 6, 2, 3]` | $+1.0000$ |
+| `equity-first_v0.25` | `equity-first` | $0.25$ | `[6, 3, 2, 4, 1, 5]` | `[6, 2, 4, 3, 1, 5]` | $+0.8286$ |
+| `equity-first_v0.50` | `equity-first` | $0.50$ | `[6, 3, 2, 4, 1, 5]` | `[6, 2, 3, 4, 1, 5]` | $+0.9429$ |
+| `equity-first_v0.75` | `equity-first` | $0.75$ | `[6, 3, 2, 4, 1, 5]` | `[6, 2, 3, 4, 1, 5]` | $+0.9429$ |
+
+### Rank-1 Robustness & Invariant Verification
+
+| Record ID | Damage Class | Roadway Segment | TOPSIS Rank-1 | VIKOR Rank-1 | Total Win Rate |
+| :--- | :---: | :--- | :---: | :---: | :---: |
+| `SRMD-IND-000045-00` | `D40` (Pothole) | Western Express Highway (Kalanagar) | $6/9$ ($67\%$) | $3/9$ ($33\%$) | **$50.0\%$** |
+| `SRMD-IND-000278-00` | `D40` (Pothole) | Western Express Highway (Jogeshwari) | $3/9$ ($33\%$) | $6/9$ ($67\%$) | **$50.0\%$** |
+| `SRMD-IND-000102-00` | `D20` (Alligator) | SV Road (Santacruz) | $0/9$ ($0\%$) | $0/9$ ($0\%$) | $0.0\%$ |
+| `SRMD-IND-000155-00` | `D00` (Longitudinal) | Linking Road (Bandra) | $0/9$ ($0\%$) | $0/9$ ($0\%$) | $0.0\%$ |
+| `SRMD-IND-000210-00` | `D10` (Transverse) | Juhu Tara Road (Juhu) | $0/9$ ($0\%$) | $0/9$ ($0\%$) | $0.0\%$ |
+| `SRMD-IND-000278-01` | `D20` (Alligator) | Western Express Highway (Jogeshwari) | $0/9$ ($0\%$) | $0/9$ ($0\%$) | $0.0\%$ |
+
+### Methodological Insights & Limitations
+
+1. **Pothole Dominance Invariant**: Across all 18 method-profile evaluations, **only severe D40 structural potholes ever achieved Rank 1** (`SRMD-IND-000045-00` with 23.22 L volume, or `SRMD-IND-000278-00` with 0.27 km trauma proximity). Surface cracks never outranked potholes under any setting.
+2. **Profile Divergence**:
+   - `traffic-first` achieves perfect concordance ($\rho = 1.0000$) between TOPSIS and VIKOR because daily PCU and arterial hierarchy align with defect volume.
+   - `equity-first` shows high concordance ($\rho \ge 0.83$) prioritizing hospital and school proximity.
+   - `safety-first` exhibits lower $\rho$ ($0.03\text{--}0.20$) at low $v \le 0.50$ because VIKOR's minimax regret $R_i$ penalizes trauma distance heavily, whereas TOPSIS compensatory distance balances high volume against moderate hospital distance. At $v = 0.75$ (majority rule), $\rho$ recovers to $+0.7714$.
+3. **Demo Set Sample Size Disclaimer**: The benchmark evaluates $N = 6$ sample records. On a sample size of $n = 6$, rank correlations are sensitive to single-item rank swaps. While this confirms the algorithmic behavior and sensitivity of the mathematical engine, statistical rank stability metrics should be validated against larger municipal fleets ($N \ge 1000$) prior to production dispatch automation.

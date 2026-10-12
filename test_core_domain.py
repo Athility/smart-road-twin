@@ -2545,6 +2545,46 @@ class TestDomainPhysicsAndThresholdHonesty(unittest.TestCase):
         self.assertIn("quantile", eng.calibration_note.lower())
         self.assertIn("0.60", eng.calibration_note)
 
+    def test_mcdm_sensitivity_analysis_script_and_output(self):
+        """
+        Task 4: verify scripts/run_sensitivity.py runs across 3 profiles x 3 v-values,
+        writes runs/experiments/sensitivity.json, and contains per-setting ranks,
+        pairwise Spearman rho, and rank-1 frequencies.
+        """
+        from scripts.run_sensitivity import run_sensitivity_analysis
+        output_file = PROJECT_ROOT / "runs" / "experiments" / "sensitivity.json"
+        res = run_sensitivity_analysis(output_path=output_file)
+
+        self.assertTrue(output_file.exists())
+        self.assertIn("metadata", res)
+        self.assertIn("settings", res)
+        self.assertEqual(len(res["settings"]), 9)
+
+        # Check each setting structure
+        for s in res["settings"]:
+            self.assertIn("setting_id", s)
+            self.assertIn("profile", s)
+            self.assertIn(s["profile"], ("safety-first", "traffic-first", "equity-first"))
+            self.assertIn(s["v"], (0.25, 0.50, 0.75))
+            self.assertEqual(len(s["topsis_ranks"]), 6)
+            self.assertEqual(len(s["vikor_ranks"]), 6)
+            self.assertTrue(-1.0 <= s["spearman_rho"] <= 1.0)
+            self.assertEqual(len(s["priority_levels"]), 6)
+
+        # Check pairwise spearman matrices
+        pw = res["pairwise_spearman"]
+        self.assertIn("within_setting_topsis_vs_vikor", pw)
+        self.assertIn("across_settings_topsis", pw)
+        self.assertIn("across_settings_vikor", pw)
+        self.assertEqual(len(pw["within_setting_topsis_vs_vikor"]), 9)
+
+        # Check rank-1 frequencies
+        r1 = res["rank_1_frequencies"]
+        self.assertEqual(len(r1), 6)
+        # On the 6-record demo set, only the two severe highway potholes ever win Rank 1
+        pothole_wins = r1["SRMD-IND-000045-00"]["total_rank_1_count"] + r1["SRMD-IND-000278-00"]["total_rank_1_count"]
+        self.assertEqual(pothole_wins, 18)  # 9 topsis + 9 vikor = 18 total wins
+
 
 if __name__ == "__main__":
     unittest.main()

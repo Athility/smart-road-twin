@@ -1,0 +1,979 @@
+{
+  "metadata": {
+    "experiment": "MCDM Multi-Criteria Sensitivity & Ranking Stability",
+    "dataset": "SRMD (Smart Road Multimodal Dataset) Western Express Corridor Demo Set",
+    "num_records": 6,
+    "profiles_evaluated": [
+      "safety-first",
+      "traffic-first",
+      "equity-first"
+    ],
+    "v_values": [
+      0.25,
+      0.5,
+      0.75
+    ],
+    "total_configurations": 9,
+    "honesty_disclosure": "Evaluated on a 6-record demonstration set. While suitable for validating algorithm invariants, weight sensitivities, and method concordance, statistical rank correlation is sensitive to individual outliers in small sample sizes (n=6) and should be interpreted as a functional proof-of-concept rather than an operational municipal dispatch validation."
+  },
+  "records": [
+    "SRMD-IND-000045-00",
+    "SRMD-IND-000102-00",
+    "SRMD-IND-000155-00",
+    "SRMD-IND-000210-00",
+    "SRMD-IND-000278-00",
+    "SRMD-IND-000278-01"
+  ],
+  "record_labels": [
+    "SRMD-IND-000045-00 (D40 @ Western Express Highway, )",
+    "SRMD-IND-000102-00 (D20 @ Swami Vivekananda (SV) Ro)",
+    "SRMD-IND-000155-00 (D00 @ Linking Road Commercial S)",
+    "SRMD-IND-000210-00 (D10 @ Pali Hill Residential Acc)",
+    "SRMD-IND-000278-00 (D40 @ Western Express Highway, )",
+    "SRMD-IND-000278-01 (D20 @ Swami Vivekananda (SV) Ro)"
+  ],
+  "settings": [
+    {
+      "setting_id": "safety-first_v0.25",
+      "profile": "safety-first",
+      "v": 0.25,
+      "weights": [
+        0.2798,
+        0.1346,
+        0.2418,
+        0.1346,
+        0.1346,
+        0.0746
+      ],
+      "topsis_scores": [
+        0.571,
+        0.4081,
+        0.3825,
+        0.3912,
+        0.5583,
+        0.3752
+      ],
+      "topsis_ranks": [
+        1,
+        3,
+        5,
+        4,
+        2,
+        6
+      ],
+      "vikor_S": [
+        0.3877,
+        0.4863,
+        0.6063,
+        0.6829,
+        0.2367,
+        0.5503
+      ],
+      "vikor_R": [
+        0.2418,
+        0.2151,
+        0.2798,
+        0.2213,
+        0.198,
+        0.1998
+      ],
+      "vikor_Q": [
+        0.4863,
+        0.2967,
+        0.9571,
+        0.4639,
+        0.0,
+        0.1923
+      ],
+      "vikor_ranks": [
+        5,
+        3,
+        6,
+        4,
+        1,
+        2
+      ],
+      "spearman_rho": 0.0286,
+      "priority_levels": [
+        "Critical",
+        "Medium",
+        "Low",
+        "Medium",
+        "High",
+        "Low"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000278-00",
+        "SRMD-IND-000278-01"
+      ]
+    },
+    {
+      "setting_id": "safety-first_v0.50",
+      "profile": "safety-first",
+      "v": 0.5,
+      "weights": [
+        0.2798,
+        0.1346,
+        0.2418,
+        0.1346,
+        0.1346,
+        0.0746
+      ],
+      "topsis_scores": [
+        0.571,
+        0.4081,
+        0.3825,
+        0.3912,
+        0.5583,
+        0.3752
+      ],
+      "topsis_ranks": [
+        1,
+        3,
+        5,
+        4,
+        2,
+        6
+      ],
+      "vikor_S": [
+        0.3877,
+        0.4863,
+        0.6063,
+        0.6829,
+        0.2367,
+        0.5503
+      ],
+      "vikor_R": [
+        0.2418,
+        0.2151,
+        0.2798,
+        0.2213,
+        0.198,
+        0.1998
+      ],
+      "vikor_Q": [
+        0.437,
+        0.3842,
+        0.9142,
+        0.6426,
+        0.0,
+        0.3625
+      ],
+      "vikor_ranks": [
+        4,
+        3,
+        6,
+        5,
+        1,
+        2
+      ],
+      "spearman_rho": 0.2,
+      "priority_levels": [
+        "Critical",
+        "Medium",
+        "Low",
+        "Medium",
+        "High",
+        "Low"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000278-00"
+      ]
+    },
+    {
+      "setting_id": "safety-first_v0.75",
+      "profile": "safety-first",
+      "v": 0.75,
+      "weights": [
+        0.2798,
+        0.1346,
+        0.2418,
+        0.1346,
+        0.1346,
+        0.0746
+      ],
+      "topsis_scores": [
+        0.571,
+        0.4081,
+        0.3825,
+        0.3912,
+        0.5583,
+        0.3752
+      ],
+      "topsis_ranks": [
+        1,
+        3,
+        5,
+        4,
+        2,
+        6
+      ],
+      "vikor_S": [
+        0.3877,
+        0.4863,
+        0.6063,
+        0.6829,
+        0.2367,
+        0.5503
+      ],
+      "vikor_R": [
+        0.2418,
+        0.2151,
+        0.2798,
+        0.2213,
+        0.198,
+        0.1998
+      ],
+      "vikor_Q": [
+        0.3878,
+        0.4718,
+        0.8713,
+        0.8213,
+        0.0,
+        0.5327
+      ],
+      "vikor_ranks": [
+        2,
+        3,
+        6,
+        5,
+        1,
+        4
+      ],
+      "spearman_rho": 0.7714,
+      "priority_levels": [
+        "Critical",
+        "Medium",
+        "Low",
+        "Medium",
+        "High",
+        "Low"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000278-00"
+      ]
+    },
+    {
+      "setting_id": "traffic-first_v0.25",
+      "profile": "traffic-first",
+      "v": 0.25,
+      "weights": [
+        0.2263,
+        0.2546,
+        0.0876,
+        0.1362,
+        0.069,
+        0.2263
+      ],
+      "topsis_scores": [
+        0.7625,
+        0.4109,
+        0.2646,
+        0.2241,
+        0.5916,
+        0.4506
+      ],
+      "topsis_ranks": [
+        1,
+        4,
+        5,
+        6,
+        2,
+        3
+      ],
+      "vikor_S": [
+        0.178,
+        0.4749,
+        0.7015,
+        0.8447,
+        0.1907,
+        0.4777
+      ],
+      "vikor_R": [
+        0.0876,
+        0.174,
+        0.2263,
+        0.2546,
+        0.1601,
+        0.1604
+      ],
+      "vikor_Q": [
+        0.0,
+        0.4992,
+        0.8192,
+        1.0,
+        0.3305,
+        0.4396
+      ],
+      "vikor_ranks": [
+        1,
+        4,
+        5,
+        6,
+        2,
+        3
+      ],
+      "spearman_rho": 1.0,
+      "priority_levels": [
+        "Critical",
+        "Medium",
+        "Low",
+        "Low",
+        "High",
+        "Medium"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000045-00"
+      ]
+    },
+    {
+      "setting_id": "traffic-first_v0.50",
+      "profile": "traffic-first",
+      "v": 0.5,
+      "weights": [
+        0.2263,
+        0.2546,
+        0.0876,
+        0.1362,
+        0.069,
+        0.2263
+      ],
+      "topsis_scores": [
+        0.7625,
+        0.4109,
+        0.2646,
+        0.2241,
+        0.5916,
+        0.4506
+      ],
+      "topsis_ranks": [
+        1,
+        4,
+        5,
+        6,
+        2,
+        3
+      ],
+      "vikor_S": [
+        0.178,
+        0.4749,
+        0.7015,
+        0.8447,
+        0.1907,
+        0.4777
+      ],
+      "vikor_R": [
+        0.0876,
+        0.174,
+        0.2263,
+        0.2546,
+        0.1601,
+        0.1604
+      ],
+      "vikor_Q": [
+        0.0,
+        0.4813,
+        0.8078,
+        1.0,
+        0.2267,
+        0.4429
+      ],
+      "vikor_ranks": [
+        1,
+        4,
+        5,
+        6,
+        2,
+        3
+      ],
+      "spearman_rho": 1.0,
+      "priority_levels": [
+        "Critical",
+        "Medium",
+        "Low",
+        "Low",
+        "High",
+        "Medium"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000045-00"
+      ]
+    },
+    {
+      "setting_id": "traffic-first_v0.75",
+      "profile": "traffic-first",
+      "v": 0.75,
+      "weights": [
+        0.2263,
+        0.2546,
+        0.0876,
+        0.1362,
+        0.069,
+        0.2263
+      ],
+      "topsis_scores": [
+        0.7625,
+        0.4109,
+        0.2646,
+        0.2241,
+        0.5916,
+        0.4506
+      ],
+      "topsis_ranks": [
+        1,
+        4,
+        5,
+        6,
+        2,
+        3
+      ],
+      "vikor_S": [
+        0.178,
+        0.4749,
+        0.7015,
+        0.8447,
+        0.1907,
+        0.4777
+      ],
+      "vikor_R": [
+        0.0876,
+        0.174,
+        0.2263,
+        0.2546,
+        0.1601,
+        0.1604
+      ],
+      "vikor_Q": [
+        0.0,
+        0.4633,
+        0.7965,
+        1.0,
+        0.1229,
+        0.4462
+      ],
+      "vikor_ranks": [
+        1,
+        4,
+        5,
+        6,
+        2,
+        3
+      ],
+      "spearman_rho": 1.0,
+      "priority_levels": [
+        "Critical",
+        "Medium",
+        "Low",
+        "Low",
+        "High",
+        "Medium"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000045-00",
+        "SRMD-IND-000278-00"
+      ]
+    },
+    {
+      "setting_id": "equity-first_v0.25",
+      "profile": "equity-first",
+      "v": 0.25,
+      "weights": [
+        0.1587,
+        0.1021,
+        0.295,
+        0.0799,
+        0.2622,
+        0.1021
+      ],
+      "topsis_scores": [
+        0.3527,
+        0.5798,
+        0.6136,
+        0.5564,
+        0.7358,
+        0.5042
+      ],
+      "topsis_ranks": [
+        6,
+        3,
+        2,
+        4,
+        1,
+        5
+      ],
+      "vikor_S": [
+        0.5658,
+        0.4184,
+        0.4512,
+        0.582,
+        0.1584,
+        0.4972
+      ],
+      "vikor_R": [
+        0.295,
+        0.144,
+        0.1587,
+        0.1255,
+        0.1123,
+        0.2438
+      ],
+      "vikor_Q": [
+        0.9904,
+        0.2838,
+        0.3633,
+        0.3043,
+        0.0,
+        0.7396
+      ],
+      "vikor_ranks": [
+        6,
+        2,
+        4,
+        3,
+        1,
+        5
+      ],
+      "spearman_rho": 0.8286,
+      "priority_levels": [
+        "Low",
+        "Medium",
+        "Critical",
+        "Medium",
+        "Critical",
+        "Low"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000278-00"
+      ]
+    },
+    {
+      "setting_id": "equity-first_v0.50",
+      "profile": "equity-first",
+      "v": 0.5,
+      "weights": [
+        0.1587,
+        0.1021,
+        0.295,
+        0.0799,
+        0.2622,
+        0.1021
+      ],
+      "topsis_scores": [
+        0.3527,
+        0.5798,
+        0.6136,
+        0.5564,
+        0.7358,
+        0.5042
+      ],
+      "topsis_ranks": [
+        6,
+        3,
+        2,
+        4,
+        1,
+        5
+      ],
+      "vikor_S": [
+        0.5658,
+        0.4184,
+        0.4512,
+        0.582,
+        0.1584,
+        0.4972
+      ],
+      "vikor_R": [
+        0.295,
+        0.144,
+        0.1587,
+        0.1255,
+        0.1123,
+        0.2438
+      ],
+      "vikor_Q": [
+        0.9809,
+        0.3938,
+        0.4726,
+        0.5362,
+        0.0,
+        0.7596
+      ],
+      "vikor_ranks": [
+        6,
+        2,
+        3,
+        4,
+        1,
+        5
+      ],
+      "spearman_rho": 0.9429,
+      "priority_levels": [
+        "Low",
+        "Medium",
+        "Critical",
+        "Medium",
+        "Critical",
+        "Low"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000278-00"
+      ]
+    },
+    {
+      "setting_id": "equity-first_v0.75",
+      "profile": "equity-first",
+      "v": 0.75,
+      "weights": [
+        0.1587,
+        0.1021,
+        0.295,
+        0.0799,
+        0.2622,
+        0.1021
+      ],
+      "topsis_scores": [
+        0.3527,
+        0.5798,
+        0.6136,
+        0.5564,
+        0.7358,
+        0.5042
+      ],
+      "topsis_ranks": [
+        6,
+        3,
+        2,
+        4,
+        1,
+        5
+      ],
+      "vikor_S": [
+        0.5658,
+        0.4184,
+        0.4512,
+        0.582,
+        0.1584,
+        0.4972
+      ],
+      "vikor_R": [
+        0.295,
+        0.144,
+        0.1587,
+        0.1255,
+        0.1123,
+        0.2438
+      ],
+      "vikor_Q": [
+        0.9713,
+        0.5039,
+        0.5818,
+        0.7681,
+        0.0,
+        0.7797
+      ],
+      "vikor_ranks": [
+        6,
+        2,
+        3,
+        4,
+        1,
+        5
+      ],
+      "spearman_rho": 0.9429,
+      "priority_levels": [
+        "Low",
+        "Medium",
+        "Critical",
+        "Medium",
+        "Critical",
+        "Low"
+      ],
+      "compromise_solution": [
+        "SRMD-IND-000278-00"
+      ]
+    }
+  ],
+  "pairwise_spearman": {
+    "within_setting_topsis_vs_vikor": {
+      "safety-first_v0.25": 0.0286,
+      "safety-first_v0.50": 0.2,
+      "safety-first_v0.75": 0.7714,
+      "traffic-first_v0.25": 1.0,
+      "traffic-first_v0.50": 1.0,
+      "traffic-first_v0.75": 1.0,
+      "equity-first_v0.25": 0.8286,
+      "equity-first_v0.50": 0.9429,
+      "equity-first_v0.75": 0.9429
+    },
+    "across_settings_topsis": {
+      "safety-first_v0.25": {
+        "safety-first_v0.25": 1.0,
+        "safety-first_v0.50": 1.0,
+        "safety-first_v0.75": 1.0,
+        "traffic-first_v0.25": 0.6,
+        "traffic-first_v0.50": 0.6,
+        "traffic-first_v0.75": 0.6,
+        "equity-first_v0.25": -0.0286,
+        "equity-first_v0.50": -0.0286,
+        "equity-first_v0.75": -0.0286
+      },
+      "safety-first_v0.50": {
+        "safety-first_v0.25": 1.0,
+        "safety-first_v0.50": 1.0,
+        "safety-first_v0.75": 1.0,
+        "traffic-first_v0.25": 0.6,
+        "traffic-first_v0.50": 0.6,
+        "traffic-first_v0.75": 0.6,
+        "equity-first_v0.25": -0.0286,
+        "equity-first_v0.50": -0.0286,
+        "equity-first_v0.75": -0.0286
+      },
+      "safety-first_v0.75": {
+        "safety-first_v0.25": 1.0,
+        "safety-first_v0.50": 1.0,
+        "safety-first_v0.75": 1.0,
+        "traffic-first_v0.25": 0.6,
+        "traffic-first_v0.50": 0.6,
+        "traffic-first_v0.75": 0.6,
+        "equity-first_v0.25": -0.0286,
+        "equity-first_v0.50": -0.0286,
+        "equity-first_v0.75": -0.0286
+      },
+      "traffic-first_v0.25": {
+        "safety-first_v0.25": 0.6,
+        "safety-first_v0.50": 0.6,
+        "safety-first_v0.75": 0.6,
+        "traffic-first_v0.25": 1.0,
+        "traffic-first_v0.50": 1.0,
+        "traffic-first_v0.75": 1.0,
+        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.50": -0.2571,
+        "equity-first_v0.75": -0.2571
+      },
+      "traffic-first_v0.50": {
+        "safety-first_v0.25": 0.6,
+        "safety-first_v0.50": 0.6,
+        "safety-first_v0.75": 0.6,
+        "traffic-first_v0.25": 1.0,
+        "traffic-first_v0.50": 1.0,
+        "traffic-first_v0.75": 1.0,
+        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.50": -0.2571,
+        "equity-first_v0.75": -0.2571
+      },
+      "traffic-first_v0.75": {
+        "safety-first_v0.25": 0.6,
+        "safety-first_v0.50": 0.6,
+        "safety-first_v0.75": 0.6,
+        "traffic-first_v0.25": 1.0,
+        "traffic-first_v0.50": 1.0,
+        "traffic-first_v0.75": 1.0,
+        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.50": -0.2571,
+        "equity-first_v0.75": -0.2571
+      },
+      "equity-first_v0.25": {
+        "safety-first_v0.25": -0.0286,
+        "safety-first_v0.50": -0.0286,
+        "safety-first_v0.75": -0.0286,
+        "traffic-first_v0.25": -0.2571,
+        "traffic-first_v0.50": -0.2571,
+        "traffic-first_v0.75": -0.2571,
+        "equity-first_v0.25": 1.0,
+        "equity-first_v0.50": 1.0,
+        "equity-first_v0.75": 1.0
+      },
+      "equity-first_v0.50": {
+        "safety-first_v0.25": -0.0286,
+        "safety-first_v0.50": -0.0286,
+        "safety-first_v0.75": -0.0286,
+        "traffic-first_v0.25": -0.2571,
+        "traffic-first_v0.50": -0.2571,
+        "traffic-first_v0.75": -0.2571,
+        "equity-first_v0.25": 1.0,
+        "equity-first_v0.50": 1.0,
+        "equity-first_v0.75": 1.0
+      },
+      "equity-first_v0.75": {
+        "safety-first_v0.25": -0.0286,
+        "safety-first_v0.50": -0.0286,
+        "safety-first_v0.75": -0.0286,
+        "traffic-first_v0.25": -0.2571,
+        "traffic-first_v0.50": -0.2571,
+        "traffic-first_v0.75": -0.2571,
+        "equity-first_v0.25": 1.0,
+        "equity-first_v0.50": 1.0,
+        "equity-first_v0.75": 1.0
+      }
+    },
+    "across_settings_vikor": {
+      "safety-first_v0.25": {
+        "safety-first_v0.25": 1.0,
+        "safety-first_v0.50": 0.9429,
+        "safety-first_v0.75": 0.6,
+        "traffic-first_v0.25": 0.3143,
+        "traffic-first_v0.50": 0.3143,
+        "traffic-first_v0.75": 0.3143,
+        "equity-first_v0.25": 0.5429,
+        "equity-first_v0.50": 0.4286,
+        "equity-first_v0.75": 0.4286
+      },
+      "safety-first_v0.50": {
+        "safety-first_v0.25": 0.9429,
+        "safety-first_v0.50": 1.0,
+        "safety-first_v0.75": 0.7714,
+        "traffic-first_v0.25": 0.6,
+        "traffic-first_v0.50": 0.6,
+        "traffic-first_v0.75": 0.6,
+        "equity-first_v0.25": 0.3714,
+        "equity-first_v0.50": 0.3143,
+        "equity-first_v0.75": 0.3143
+      },
+      "safety-first_v0.75": {
+        "safety-first_v0.25": 0.6,
+        "safety-first_v0.50": 0.7714,
+        "safety-first_v0.75": 1.0,
+        "traffic-first_v0.25": 0.8286,
+        "traffic-first_v0.50": 0.8286,
+        "traffic-first_v0.75": 0.8286,
+        "equity-first_v0.25": 0.2571,
+        "equity-first_v0.50": 0.2,
+        "equity-first_v0.75": 0.2
+      },
+      "traffic-first_v0.25": {
+        "safety-first_v0.25": 0.3143,
+        "safety-first_v0.50": 0.6,
+        "safety-first_v0.75": 0.8286,
+        "traffic-first_v0.25": 1.0,
+        "traffic-first_v0.50": 1.0,
+        "traffic-first_v0.75": 1.0,
+        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.50": -0.2,
+        "equity-first_v0.75": -0.2
+      },
+      "traffic-first_v0.50": {
+        "safety-first_v0.25": 0.3143,
+        "safety-first_v0.50": 0.6,
+        "safety-first_v0.75": 0.8286,
+        "traffic-first_v0.25": 1.0,
+        "traffic-first_v0.50": 1.0,
+        "traffic-first_v0.75": 1.0,
+        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.50": -0.2,
+        "equity-first_v0.75": -0.2
+      },
+      "traffic-first_v0.75": {
+        "safety-first_v0.25": 0.3143,
+        "safety-first_v0.50": 0.6,
+        "safety-first_v0.75": 0.8286,
+        "traffic-first_v0.25": 1.0,
+        "traffic-first_v0.50": 1.0,
+        "traffic-first_v0.75": 1.0,
+        "equity-first_v0.25": -0.2571,
+        "equity-first_v0.50": -0.2,
+        "equity-first_v0.75": -0.2
+      },
+      "equity-first_v0.25": {
+        "safety-first_v0.25": 0.5429,
+        "safety-first_v0.50": 0.3714,
+        "safety-first_v0.75": 0.2571,
+        "traffic-first_v0.25": -0.2571,
+        "traffic-first_v0.50": -0.2571,
+        "traffic-first_v0.75": -0.2571,
+        "equity-first_v0.25": 1.0,
+        "equity-first_v0.50": 0.9429,
+        "equity-first_v0.75": 0.9429
+      },
+      "equity-first_v0.50": {
+        "safety-first_v0.25": 0.4286,
+        "safety-first_v0.50": 0.3143,
+        "safety-first_v0.75": 0.2,
+        "traffic-first_v0.25": -0.2,
+        "traffic-first_v0.50": -0.2,
+        "traffic-first_v0.75": -0.2,
+        "equity-first_v0.25": 0.9429,
+        "equity-first_v0.50": 1.0,
+        "equity-first_v0.75": 1.0
+      },
+      "equity-first_v0.75": {
+        "safety-first_v0.25": 0.4286,
+        "safety-first_v0.50": 0.3143,
+        "safety-first_v0.75": 0.2,
+        "traffic-first_v0.25": -0.2,
+        "traffic-first_v0.50": -0.2,
+        "traffic-first_v0.75": -0.2,
+        "equity-first_v0.25": 0.9429,
+        "equity-first_v0.50": 1.0,
+        "equity-first_v0.75": 1.0
+      }
+    }
+  },
+  "rank_1_frequencies": {
+    "SRMD-IND-000045-00": {
+      "record_id": "SRMD-IND-000045-00",
+      "label": "SRMD-IND-000045-00 (D40 @ Western Express Highway, )",
+      "damage_class": "D40",
+      "topsis_rank_1_count": 6,
+      "topsis_rank_1_frequency": 0.6667,
+      "vikor_rank_1_count": 3,
+      "vikor_rank_1_frequency": 0.3333,
+      "total_rank_1_count": 9,
+      "overall_rank_1_frequency": 0.5
+    },
+    "SRMD-IND-000102-00": {
+      "record_id": "SRMD-IND-000102-00",
+      "label": "SRMD-IND-000102-00 (D20 @ Swami Vivekananda (SV) Ro)",
+      "damage_class": "D20",
+      "topsis_rank_1_count": 0,
+      "topsis_rank_1_frequency": 0.0,
+      "vikor_rank_1_count": 0,
+      "vikor_rank_1_frequency": 0.0,
+      "total_rank_1_count": 0,
+      "overall_rank_1_frequency": 0.0
+    },
+    "SRMD-IND-000155-00": {
+      "record_id": "SRMD-IND-000155-00",
+      "label": "SRMD-IND-000155-00 (D00 @ Linking Road Commercial S)",
+      "damage_class": "D00",
+      "topsis_rank_1_count": 0,
+      "topsis_rank_1_frequency": 0.0,
+      "vikor_rank_1_count": 0,
+      "vikor_rank_1_frequency": 0.0,
+      "total_rank_1_count": 0,
+      "overall_rank_1_frequency": 0.0
+    },
+    "SRMD-IND-000210-00": {
+      "record_id": "SRMD-IND-000210-00",
+      "label": "SRMD-IND-000210-00 (D10 @ Pali Hill Residential Acc)",
+      "damage_class": "D10",
+      "topsis_rank_1_count": 0,
+      "topsis_rank_1_frequency": 0.0,
+      "vikor_rank_1_count": 0,
+      "vikor_rank_1_frequency": 0.0,
+      "total_rank_1_count": 0,
+      "overall_rank_1_frequency": 0.0
+    },
+    "SRMD-IND-000278-00": {
+      "record_id": "SRMD-IND-000278-00",
+      "label": "SRMD-IND-000278-00 (D40 @ Western Express Highway, )",
+      "damage_class": "D40",
+      "topsis_rank_1_count": 3,
+      "topsis_rank_1_frequency": 0.3333,
+      "vikor_rank_1_count": 6,
+      "vikor_rank_1_frequency": 0.6667,
+      "total_rank_1_count": 9,
+      "overall_rank_1_frequency": 0.5
+    },
+    "SRMD-IND-000278-01": {
+      "record_id": "SRMD-IND-000278-01",
+      "label": "SRMD-IND-000278-01 (D20 @ Swami Vivekananda (SV) Ro)",
+      "damage_class": "D20",
+      "topsis_rank_1_count": 0,
+      "topsis_rank_1_frequency": 0.0,
+      "vikor_rank_1_count": 0,
+      "vikor_rank_1_frequency": 0.0,
+      "total_rank_1_count": 0,
+      "overall_rank_1_frequency": 0.0
+    }
+  }
+}
