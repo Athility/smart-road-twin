@@ -5,7 +5,7 @@
 [![Next.js 15](https://img.shields.io/badge/Next.js-15.5.27-black?style=flat-svg&logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-svg&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-svg&logo=python)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/Tests-86%2F86%20Passing-brightgreen?style=flat-svg)](./test_core_domain.py)
+[![Tests](https://img.shields.io/badge/Tests-105%2F105%20Passing-brightgreen?style=flat-svg)](./test_core_domain.py)
 [![Seed](https://img.shields.io/badge/Seed-2026-blue?style=flat-svg)](./data/processed/srmd/metadata.json)
 
 ---
@@ -268,79 +268,89 @@ Results are saved to `runs/experiments/fusion_benchmark.json`.
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🚀 Quick Start (Windows & Cross-Platform)
 
 ### Prerequisites
 - Python 3.10+
 - Node.js 18.x or 20.x
-- pip packages: `fastapi uvicorn pydantic numpy pillow`
+- pip packages: `fastapi uvicorn pydantic numpy pillow requests pyyaml`
 - Optional: `pandas pyarrow` for Parquet export
 
-### 1. Clone and Install Backend
+---
 
-```bash
-git clone <repo-url>
-cd smart-road-twin
+### Exact Windows Quick-Start
 
-# Install backend dependencies
-pip install fastapi uvicorn pydantic numpy pillow
+Run these commands in separate PowerShell terminals from the repository root (`c:\smart-road-twin`):
 
-# Optional: Parquet support
-pip install pandas pyarrow
+#### Terminal 1: FastAPI Backend (Port 8000)
+```powershell
+# Launch FastAPI backend with uvicorn on 127.0.0.1:8000
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
+- Interactive Swagger API Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health Check: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
-### 2. Download RDD2022 India (optional — sample data included)
-
-```bash
-# Full dataset (~1.2 GB)
-python scripts/download_rdd2022.py
-
-# Or use the 5-image sample already in data/samples/
-```
-
-### 3. Prepare and Index Annotations
-
-```bash
-python scripts/prepare_rdd2022.py \
-    --input data/raw/rdd2022_india \
-    --output data/processed
-```
-
-### 4. Generate the Smart Road Multimodal Dataset
-
-```bash
-# Full dataset (all annotations)
-python scripts/generate_srmd.py \
-    --input data/raw/rdd2022_india \
-    --output data/processed/srmd \
-    --seed 2026
-
-# Limit to 100 records for testing
-python scripts/generate_srmd.py \
-    --seed 2026 \
-    --limit 100
-```
-
-Every run with `--seed 2026` produces **identical records** — deterministically reproducible.
-
-### 5. Start the FastAPI Backend
-
-```bash
-python main.py
-# or: uvicorn main:app --reload --port 8000
-```
-
-API docs: `http://localhost:8000/docs`
-
-### 6. Start the Next.js Dashboard
-
-```bash
+#### Terminal 2: Next.js Digital Twin Dashboard (Port 3000)
+```powershell
 cd frontend
+
+# Optional: configure backend API endpoint (defaults to http://127.0.0.1:8000)
+$env:NEXT_PUBLIC_API_URL = "http://127.0.0.1:8000"
+
+# Install frontend dependencies (first run only)
 npm install
+
+# Start Next.js development server
 npm run dev
 ```
+- Digital Twin Command Centre: [http://localhost:3000](http://localhost:3000)
+- **Offline Fallback Sync**: The dashboard is fully functional even if the backend is stopped, automatically falling back to verified local SRMD data in `frontend/src/data/fallback_records.json`.
 
-Dashboard: `http://localhost:3000`
+#### Optional Terminal 3: Mock IoT Inspection Vehicle Simulator
+```powershell
+# Stream simulated multi-sensor telemetry packets to the backend ingestion endpoint
+python simulation/mock_iot_vehicle.py --loop --interval 2.0
+```
+- Streams continuous telemetry (GPS waypoints along the Mumbai Western Express Corridor, LiDAR depth, acoustic sonar, chassis Z-acceleration impulses, ambient lux, and rain detection) to `POST /api/v1/telemetry/ingest`.
+
+---
+
+### Dataset Synthesis (Deterministic `SEED = 2026`)
+
+The repository includes a 5-image demo sample in `data/samples/`. To regenerate or expand the Smart Road Multimodal Dataset (SRMD):
+
+```powershell
+# Regenerate canonical 6-record demonstration dataset (seed 2026)
+python scripts/generate_srmd.py --seed 2026
+
+# Export sensitivity benchmark grid across weights, VIKOR v, and crack scales
+python scripts/run_sensitivity.py
+
+# Re-synchronize frontend offline fallback records
+python scripts/sync_frontend_fallback.py
+```
+
+---
+
+## 🎮 5-Step Demo Walkthrough
+
+Follow these 5 steps to verify all digital twin capabilities:
+
+1. **Launch Command Centre & Basemap**:
+   Open [http://localhost:3000](http://localhost:3000). The dashboard loads an Esri World Dark Gray basemap centered on the Mumbai Western Express Highway corridor, displaying color-coded defect markers with hazard radii, priority clustering, and the Top-3 priority queue summary in the right drawer.
+2. **Inspect Priority Queue & Weight Profiles**:
+   In the top-right toolbar, cycle through the three Fuzzy BWM weight profiles: **Safety-First**, **Traffic-First**, and **Equity-First**. Observe live multi-criteria re-ranking via `/api/v1/prioritization`, side-by-side TOPSIS vs. VIKOR ranks, and yellow "methods disagree" badges whenever $|\text{Rank}_{\text{TOPSIS}} - \text{Rank}_{\text{VIKOR}}| \ge 2$.
+3. **Inspect Incident Drawer & Pipeline Flow (Layers 1–5)**:
+   Click any table row or map marker (e.g., `SRMD-IND-000045-00` or `SRMD-IND-000278-00`) to open the incident drawer. Switch to the **Pipeline** tab to inspect the 5-layer audit trail:
+   - **Layer 1 (Sensor Selection)**: Active sensor modality (`Optical LiDAR` vs `Sonar Submerged Acoustic`) with weather/lux switching rationale.
+   - **Layer 2 (Preprocessing)**: Interactive CLAHE split-slider preview comparing raw vs contrast-enhanced frames with local contrast/luminance metrics.
+   - **Layer 3 (Detection)**: Honest detector attribution badge (`Synthetic sample images, RDD2022 annotation schema` and `N/A (annotation, not a model prediction)`).
+   - **Layer 4 (Geometry & Volume)**: Ground-plane pinhole footprint and exact paraboloid cavity volume formula ($V = 0.5 \times \text{Area} \times \text{Depth} \times 1000$) reproducing displayed liters.
+   - **Layer 5 (MCDM Decision)**: TOPSIS closeness $C_i$ vs. VIKOR $Q_i$, evaluation of conditions C1 (Acceptable Advantage) and C2 (Acceptable Stability), and the compromise solution set.
+4. **Interactive Environmental Scenario Simulation**:
+   In the incident drawer header or top bar, toggle the **Simulation** scenarios: **Dry (LiDAR)**, **Rain (Sonar)**, or **Night (Sonar)**. Watch the active sensor switch dynamically, recalculating the effective depth, volume, and urgency score in real time.
+5. **Explore Sensitivity Analysis & Large-Cohort Benchmarks**:
+   Click the **Sensitivity** tab in the main view. Review the interactive 6-record $\times$ 9-setting rank heatmap and Recharts Rank-1 frequency distribution. Scroll down to inspect the large-cohort $N=300$ synthetic validation suite, displaying mean Spearman $\rho$, Kendall $\tau$, Top-5 priority overlap, and 1000-resample bootstrap 95% confidence intervals across crack multiplier scales $\{5, 15, 30, 60\}$.
 
 ---
 
@@ -350,7 +360,7 @@ Dashboard: `http://localhost:3000`
 smart-road-twin/
 ├── README.md
 ├── main.py                         # FastAPI application entrypoint
-├── test_core_domain.py             # 83-test domain validation suite
+├── test_core_domain.py             # 105-test domain validation suite
 ├── vercel.json                     # Vercel deployment configuration
 │
 ├── config/
@@ -485,7 +495,7 @@ Split files: `data/processed/srmd/splits/`
 ## 🧪 Testing (Phase 23)
 
 ```bash
-# Full 83-test domain validation suite
+# Full 105-test domain validation suite
 python -m unittest test_core_domain.py -v
 
 # Frontend type check and production build
@@ -570,6 +580,19 @@ vercel --prod
 ```
 
 The root `vercel.json` routes `/api/v1/*` to FastAPI (`main.py`) and all other paths to Next.js (`frontend/`).
+
+---
+
+## ⚠️ Known Limitations & Real vs. Simulated Disclosures
+
+For a rigorous, file-referenced accounting of what is genuinely implemented versus simulated or omitted, refer to [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md) and [`docs/PAPER_NUMBERS.md`](./docs/PAPER_NUMBERS.md). Key disclosures:
+
+1. **Synthetic Demo Visual Data**: The 5 demo sample images in `data/samples/images/` are PIL-generated synthetic road defect textures conforming to RDD2022 image dimensions ($720 \times 720$). Annotation bounding boxes in `India_000045.xml` and `India_000278.xml` were adjusted to produce realistic physical footprints ($0.05\text{--}0.40\,\text{m}^2$) rather than arbitrary pixel areas.
+2. **Detection Mode Attribution**: Visual detection defaults to `GroundTruthLookupAdapter` (`detector: "ground-truth lookup"`), reading VOC annotations with honest attribution (`"N/A (annotation, not a model prediction)"`). Real YOLOv8 inference requires installing `ultralytics` and supplying trained `.pt` model weights.
+3. **Simulated Telemetry**: LiDAR ToF depth, acoustic sonar echoes, chassis Z-accelerometer impulses, ambient lux, and rain flags are physically consistent stochastic simulations seeded with `SEED = 2026`. GPS coordinates represent deterministic waypoints along the Mumbai Western Express Corridor.
+4. **Paraboloid Volume Model**: Pothole cavity volume ($V = 0.5 \times \text{Area} \times \text{Depth} \times 1000$) models defects as smooth paraboloids of revolution (configured in `config/sensor_profiles.yaml`). Real-world potholes exhibit irregular, fractal geometries.
+5. **N=6 Small Sample Behavior**: For the 6-record demonstration corridor, batch quantile tiering produces exactly one Critical defect, the absolute alarm rule ($C_i \ge 0.60$) does not trigger, and the top-2 potholes differ by only $0.0035$ TOPSIS score units (functionally tied). See [`docs/MCDM.md`](./docs/MCDM.md).
+6. **In-Memory Storage & Dispatch**: Telemetry is ingested into an in-memory queue (`telemetry_store`, capped at 500 records) without persistent database storage. Maintenance recommendations are informational; automated municipal work-order dispatch is not connected.
 
 ---
 
