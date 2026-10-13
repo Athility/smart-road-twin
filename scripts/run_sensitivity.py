@@ -220,7 +220,9 @@ def run_sensitivity_analysis(
     # -------------------------------------------------------------------------
     # 3. Large-Cohort N=300 Sensitivity Analysis
     # -------------------------------------------------------------------------
+    import scipy.stats as stats
     from services.dataset.srmd_builder import SRMDRecordBuilder
+
     builder = SRMDRecordBuilder(seed=2026)
     n300_classes = ["D40", "D20", "D10", "D00"]
     n300_bboxes = {
@@ -237,17 +239,40 @@ def run_sensitivity_analysis(
         n300_records.append(rec)
 
     n300_scale_metrics: Dict[str, Any] = {}
+    all_n300_rhos = []
+    all_n300_taus = []
+    all_n300_top5s = []
+
     for sc in eval_scales:
         n300_mat = np.array([build_mcdm_row_from_srmd(r, crack_scale=sc) for r in n300_records])
         profile_metrics = {}
         sc_rhos = []
+        sc_taus = []
+        sc_top5s = []
         r1_by_class = {c: 0 for c in n300_classes}
+
+        rng = np.random.default_rng(2026 + int(sc))
 
         for p in profiles:
             eng = MCDMPrioritizationEngine(profile=p, use_calibrated_thresholds=True)
             res = eng.compute_all(n300_mat, v=0.5, calibrated=True)
+            t_ranks = np.array(res["topsis_ranks"])
+            v_ranks = np.array(res["vikor_ranks"])
+
             rho = float(res["spearman_correlation"])
+            tau, _ = stats.kendalltau(t_ranks, v_ranks)
+            tau = float(tau)
+
+            top5_t = set(np.argsort(t_ranks)[:5])
+            top5_v = set(np.argsort(v_ranks)[:5])
+            top5_overlap = float(len(top5_t & top5_v) / 5.0)
+
             sc_rhos.append(rho)
+            sc_taus.append(tau)
+            sc_top5s.append(top5_overlap)
+            all_n300_rhos.append(rho)
+            all_n300_taus.append(tau)
+            all_n300_top5s.append(top5_overlap)
 
             t_r1 = [i for i, r in enumerate(res["topsis_ranks"]) if r == 1][0]
             v_r1 = [i for i, r in enumerate(res["vikor_ranks"]) if r == 1][0]
@@ -256,8 +281,33 @@ def run_sensitivity_analysis(
             r1_by_class[t_cls] += 1
             r1_by_class[v_cls] += 1
 
+            # 1000-sample bootstrap for confidence interval
+            boot_rhos = []
+            boot_taus = []
+            boot_top5s = []
+            for _ in range(1000):
+                b_idx = rng.choice(300, size=300, replace=True)
+                b_t = t_ranks[b_idx]
+                b_v = v_ranks[b_idx]
+                b_rho, _ = stats.spearmanr(b_t, b_v)
+                b_tau, _ = stats.kendalltau(b_t, b_v)
+                b_t5_t = set(np.argsort(b_t)[:5])
+                b_t5_v = set(np.argsort(b_v)[:5])
+                boot_rhos.append(float(b_rho))
+                boot_taus.append(float(b_tau))
+                boot_top5s.append(len(b_t5_t & b_t5_v) / 5.0)
+
+            ci_rho = [round(float(x), 4) for x in np.percentile(boot_rhos, [2.5, 97.5])]
+            ci_tau = [round(float(x), 4) for x in np.percentile(boot_taus, [2.5, 97.5])]
+            ci_top5 = [round(float(x), 4) for x in np.percentile(boot_top5s, [2.5, 97.5])]
+
             profile_metrics[p] = {
                 "spearman_rho": round(rho, 4),
+                "kendall_tau": round(tau, 4),
+                "top5_overlap": round(top5_overlap, 4),
+                "bootstrap_95ci_spearman_rho": ci_rho,
+                "bootstrap_95ci_kendall_tau": ci_tau,
+                "bootstrap_95ci_top5_overlap": ci_top5,
                 "topsis_rank_1_class": t_cls,
                 "vikor_rank_1_class": v_cls
             }
@@ -265,9 +315,26 @@ def run_sensitivity_analysis(
         n300_scale_metrics[str(int(sc))] = {
             "scale": float(sc),
             "mean_spearman_rho": round(float(np.mean(sc_rhos)), 4),
+            "mean_kendall_tau": round(float(np.mean(sc_taus)), 4),
+            "mean_top5_overlap": round(float(np.mean(sc_top5s)), 4),
             "rank_1_distribution_by_class": r1_by_class,
             "profiles": profile_metrics
         }
+
+    # Baseline scale (15.0) bootstrap summary
+    base_m = n300_scale_metrics[str(int(configured_base_scale))]
+    base_ci_rho = [
+        round(float(np.mean([base_m["profiles"][p]["bootstrap_95ci_spearman_rho"][0] for p in profiles])), 4),
+        round(float(np.mean([base_m["profiles"][p]["bootstrap_95ci_spearman_rho"][1] for p in profiles])), 4)
+    ]
+    base_ci_tau = [
+        round(float(np.mean([base_m["profiles"][p]["bootstrap_95ci_kendall_tau"][0] for p in profiles])), 4),
+        round(float(np.mean([base_m["profiles"][p]["bootstrap_95ci_kendall_tau"][1] for p in profiles])), 4)
+    ]
+    base_ci_top5 = [
+        round(float(np.mean([base_m["profiles"][p]["bootstrap_95ci_top5_overlap"][0] for p in profiles])), 4),
+        round(float(np.mean([base_m["profiles"][p]["bootstrap_95ci_top5_overlap"][1] for p in profiles])), 4)
+    ]
 
     # -------------------------------------------------------------------------
     # 4. Construct Final Payload
@@ -284,7 +351,8 @@ def run_sensitivity_analysis(
             "total_configurations": len(settings),
             "total_scale_configurations": len(all_scale_settings),
             "honesty_disclosure": (
-                "Evaluated on a 6-record demonstration set and an N=300 synthetic corridor cohort. "
+                "Evaluated on a 6-record demonstration set and an N=300 synthetic corridor cohort "
+                "explicitly labeled SYNTHETIC (templated bboxes, fixed seed). "
                 "The observed Rank-1 pothole dominance is strictly conditional on the crack severity multiplier "
                 "(CRACK_SEVERITY_TO_MAGNITUDE_SCALE <= 15.0). At higher scales (scale=30, scale=60), severe alligator "
                 "cracks outrank potholes under safety-first and traffic-first profiles. Algorithmic invariants "
@@ -311,12 +379,23 @@ def run_sensitivity_analysis(
             "crack_r1_threshold": 30.0
         },
         "n300_cohort_analysis": {
+            "cohort_label": "SYNTHETIC (templated bboxes, fixed seed)",
+            "cohort_type": "SYNTHETIC",
+            "cohort_notes": "Templated bounding boxes across 4 RDD2022 distress classes with deterministic synthesis seed=2026",
             "cohort_size": 300,
             "class_distribution": {c: 75 for c in n300_classes},
             "scale_metrics": n300_scale_metrics,
-            "mean_concordance_rho": round(float(np.mean([m["mean_spearman_rho"] for m in n300_scale_metrics.values()])), 4)
+            "baseline_bootstrap_95ci": {
+                "spearman_rho": base_ci_rho,
+                "kendall_tau": base_ci_tau,
+                "top5_overlap": base_ci_top5
+            },
+            "mean_concordance_rho": round(float(np.mean([m["mean_spearman_rho"] for m in n300_scale_metrics.values()])), 4),
+            "mean_kendall_tau": round(float(np.mean([m["mean_kendall_tau"] for m in n300_scale_metrics.values()])), 4),
+            "mean_top5_overlap": round(float(np.mean([m["mean_top5_overlap"] for m in n300_scale_metrics.values()])), 4)
         }
     }
+
 
     # -------------------------------------------------------------------------
     # 5. Export to Disks (experiments run and frontend data caches)

@@ -66,16 +66,23 @@ Evaluation across crack-to-volume multipliers $\text{scale} \in \{5.0, 15.0, 30.
 
 ## 5. Large-Cohort $N = 300$ Validation Statistics
 
-Evaluation of a synthetic 300-defect municipal corridor cohort (75 D40, 75 D20, 75 D10, 75 D00):
+> **Cohort Specification & Provenance**: Explicitly labeled **`SYNTHETIC (templated bboxes, fixed seed)`**.
+> Synthesized using `SRMDRecordBuilder(seed=2026)` with templated bounding boxes across 4 RDD2022 distress classes (75 D40, 75 D20, 75 D10, 75 D00).
 
-| Multiplier Scale | Mean Cohort $\rho$ | Safety-First $\rho$ | Traffic-First $\rho$ | Equity-First $\rho$ | Pothole Rank-1 Share |
-| :---: | :---: | :---: | :---: | :---: | :---: |
-| **5.0** | `0.9479` | `0.8865` | `0.9685` | `0.9888` | 6 / 6 (100%) |
-| **15.0** | `0.9466` | `0.9041` | `0.9464` | `0.9892` | 6 / 6 (100%) |
-| **30.0** | `0.9359` | `0.9069` | `0.9127` | `0.9880` | 6 / 6 (100%) |
-| **60.0** | `0.9774` | `0.9636` | `0.9780` | `0.9907` | 6 / 6 (100%) |
+| Multiplier Scale | Mean Cohort $\rho$ | Kendall $\tau$ | Top-5 Overlap | Safety-First $\rho$ | Traffic-First $\rho$ | Equity-First $\rho$ | Pothole Rank-1 Share |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **5.0** | `0.9479` | `0.8331` | `0.6667` | `0.8865` | `0.9685` | `0.9888` | 6 / 6 (100%) |
+| **15.0** | `0.9466` | `0.8276` | `0.6667` | `0.9041` | `0.9464` | `0.9892` | 6 / 6 (100%) |
+| **30.0** | `0.9359` | `0.8124` | `0.6667` | `0.9069` | `0.9127` | `0.9880` | 6 / 6 (100%) |
+| **60.0** | `0.9774` | `0.8892` | `0.6667` | `0.9636` | `0.9780` | `0.9907` | 6 / 6 (100%) |
 
 - **Overall Mean Cohort Concordance ($\bar{\rho}$)**: **`0.9520`**.
+- **Overall Mean Kendall $\tau$**: **`0.8406`**.
+- **Overall Mean Top-5 Overlap**: **`0.6667`**.
+- **Baseline (Scale = 15.0) 1000-Resample Bootstrap 95% Confidence Intervals**:
+  - Spearman Rank Correlation ($\rho$): `[0.9253, 0.9619]`
+  - Kendall Rank Correlation ($\tau$): `[0.7970, 0.8550]`
+  - Top-5 Priority Overlap: `[0.2000, 0.9333]`
 - **Cohort Sample Size**: $N = 300$ multimodal inspection records.
 
 ---

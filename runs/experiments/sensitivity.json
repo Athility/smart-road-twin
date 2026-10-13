@@ -22,7 +22,7 @@
     ],
     "total_configurations": 9,
     "total_scale_configurations": 36,
-    "honesty_disclosure": "Evaluated on a 6-record demonstration set and an N=300 synthetic corridor cohort. The observed Rank-1 pothole dominance is strictly conditional on the crack severity multiplier (CRACK_SEVERITY_TO_MAGNITUDE_SCALE <= 15.0). At higher scales (scale=30, scale=60), severe alligator cracks outrank potholes under safety-first and traffic-first profiles. Algorithmic invariants and method concordance hold across all scales."
+    "honesty_disclosure": "Evaluated on a 6-record demonstration set and an N=300 synthetic corridor cohort explicitly labeled SYNTHETIC (templated bboxes, fixed seed). The observed Rank-1 pothole dominance is strictly conditional on the crack severity multiplier (CRACK_SEVERITY_TO_MAGNITUDE_SCALE <= 15.0). At higher scales (scale=30, scale=60), severe alligator cracks outrank potholes under safety-first and traffic-first profiles. Algorithmic invariants and method concordance hold across all scales."
   },
   "records": [
     "SRMD-IND-000045-00",
@@ -1282,6 +1282,9 @@
     "crack_r1_threshold": 30.0
   },
   "n300_cohort_analysis": {
+    "cohort_label": "SYNTHETIC (templated bboxes, fixed seed)",
+    "cohort_type": "SYNTHETIC",
+    "cohort_notes": "Templated bounding boxes across 4 RDD2022 distress classes with deterministic synthesis seed=2026",
     "cohort_size": 300,
     "class_distribution": {
       "D40": 75,
@@ -1293,6 +1296,8 @@
       "5": {
         "scale": 5.0,
         "mean_spearman_rho": 0.9479,
+        "mean_kendall_tau": 0.8331,
+        "mean_top5_overlap": 0.6667,
         "rank_1_distribution_by_class": {
           "D40": 6,
           "D20": 0,
@@ -1302,16 +1307,58 @@
         "profiles": {
           "safety-first": {
             "spearman_rho": 0.8865,
+            "kendall_tau": 0.7241,
+            "top5_overlap": 0.6,
+            "bootstrap_95ci_spearman_rho": [
+              0.85,
+              0.9155
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.6831,
+              0.7654
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.2,
+              0.8
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           },
           "traffic-first": {
             "spearman_rho": 0.9685,
+            "kendall_tau": 0.861,
+            "top5_overlap": 0.6,
+            "bootstrap_95ci_spearman_rho": [
+              0.9543,
+              0.9775
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.8343,
+              0.885
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.2,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           },
           "equity-first": {
             "spearman_rho": 0.9888,
+            "kendall_tau": 0.9143,
+            "top5_overlap": 0.8,
+            "bootstrap_95ci_spearman_rho": [
+              0.9837,
+              0.9916
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.8993,
+              0.9277
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.4,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           }
@@ -1320,6 +1367,8 @@
       "15": {
         "scale": 15.0,
         "mean_spearman_rho": 0.9466,
+        "mean_kendall_tau": 0.8276,
+        "mean_top5_overlap": 0.6667,
         "rank_1_distribution_by_class": {
           "D40": 6,
           "D20": 0,
@@ -1329,16 +1378,58 @@
         "profiles": {
           "safety-first": {
             "spearman_rho": 0.9041,
+            "kendall_tau": 0.7373,
+            "top5_overlap": 0.6,
+            "bootstrap_95ci_spearman_rho": [
+              0.8709,
+              0.9279
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.6951,
+              0.7742
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.0,
+              0.8
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           },
           "traffic-first": {
             "spearman_rho": 0.9464,
+            "kendall_tau": 0.8264,
+            "top5_overlap": 0.6,
+            "bootstrap_95ci_spearman_rho": [
+              0.9216,
+              0.9652
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.7925,
+              0.8584
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.2,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           },
           "equity-first": {
             "spearman_rho": 0.9892,
+            "kendall_tau": 0.919,
+            "top5_overlap": 0.8,
+            "bootstrap_95ci_spearman_rho": [
+              0.9833,
+              0.9925
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.9034,
+              0.9325
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.4,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           }
@@ -1347,6 +1438,8 @@
       "30": {
         "scale": 30.0,
         "mean_spearman_rho": 0.9359,
+        "mean_kendall_tau": 0.8124,
+        "mean_top5_overlap": 0.6667,
         "rank_1_distribution_by_class": {
           "D40": 6,
           "D20": 0,
@@ -1356,16 +1449,58 @@
         "profiles": {
           "safety-first": {
             "spearman_rho": 0.9069,
+            "kendall_tau": 0.7397,
+            "top5_overlap": 0.6,
+            "bootstrap_95ci_spearman_rho": [
+              0.8837,
+              0.9254
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.7049,
+              0.772
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.195,
+              0.8
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           },
           "traffic-first": {
             "spearman_rho": 0.9127,
+            "kendall_tau": 0.7726,
+            "top5_overlap": 0.6,
+            "bootstrap_95ci_spearman_rho": [
+              0.8739,
+              0.9412
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.7237,
+              0.8148
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.0,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           },
           "equity-first": {
             "spearman_rho": 0.988,
+            "kendall_tau": 0.9248,
+            "top5_overlap": 0.8,
+            "bootstrap_95ci_spearman_rho": [
+              0.9795,
+              0.9926
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.9066,
+              0.9401
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.4,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           }
@@ -1374,6 +1509,8 @@
       "60": {
         "scale": 60.0,
         "mean_spearman_rho": 0.9774,
+        "mean_kendall_tau": 0.8892,
+        "mean_top5_overlap": 0.6667,
         "rank_1_distribution_by_class": {
           "D40": 6,
           "D20": 0,
@@ -1383,22 +1520,80 @@
         "profiles": {
           "safety-first": {
             "spearman_rho": 0.9636,
+            "kendall_tau": 0.8537,
+            "top5_overlap": 0.6,
+            "bootstrap_95ci_spearman_rho": [
+              0.946,
+              0.9749
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.8244,
+              0.8788
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.2,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           },
           "traffic-first": {
             "spearman_rho": 0.978,
+            "kendall_tau": 0.8816,
+            "top5_overlap": 0.6,
+            "bootstrap_95ci_spearman_rho": [
+              0.9677,
+              0.9831
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.8602,
+              0.8991
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.0,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           },
           "equity-first": {
             "spearman_rho": 0.9907,
+            "kendall_tau": 0.9322,
+            "top5_overlap": 0.8,
+            "bootstrap_95ci_spearman_rho": [
+              0.9845,
+              0.9938
+            ],
+            "bootstrap_95ci_kendall_tau": [
+              0.917,
+              0.945
+            ],
+            "bootstrap_95ci_top5_overlap": [
+              0.4,
+              1.0
+            ],
             "topsis_rank_1_class": "D40",
             "vikor_rank_1_class": "D40"
           }
         }
       }
     },
-    "mean_concordance_rho": 0.952
+    "baseline_bootstrap_95ci": {
+      "spearman_rho": [
+        0.9253,
+        0.9619
+      ],
+      "kendall_tau": [
+        0.797,
+        0.855
+      ],
+      "top5_overlap": [
+        0.2,
+        0.9333
+      ]
+    },
+    "mean_concordance_rho": 0.952,
+    "mean_kendall_tau": 0.8406,
+    "mean_top5_overlap": 0.6667
   }
 }
