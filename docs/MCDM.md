@@ -200,6 +200,14 @@ Every response from `GET /api/v1/prioritization` and `POST /api/v1/prioritizatio
 
 In a 6-dimensional Euclidean space with spatial trade-offs, static quartile thresholds (0.75 / 0.50 / 0.25) suffer from score compression: highway defects exhibit higher void volume, traffic PCU/day, and road class hierarchy, whereas collector/local defects lie closer to schools or hospitals. Because no single defect simultaneously achieves the ideal extremum on all 6 axes, TOPSIS relative closeness C_i* typically clusters between 0.35 and 0.60. Batch quantile tiering ensures that resources are distributed proportionally across maintenance crews regardless of seasonal or corridor-wide score drift, while the absolute alarm rule ensures extreme hazards are never downgraded.
 
+### Plain Operational Notes on Demonstration Cohort & Score Proximity
+
+> **Note A (Quantile Tiering vs. Absolute Alarm at $N = 6$)**:
+> With $N = 6$ demonstration records, the batch quantile allocation rule ($\lceil 0.10 \times 6 \rceil = 1$) always assigns exactly **one** incident to the `Critical` priority tier (`SRMD-IND-000278-00` under `safety-first`). The fixed absolute alarm rule ($\text{TOPSIS} \ge 0.60 \implies \text{Critical}$) **never fired** on this baseline demo set, as both highway potholes scored below $0.60$ ($0.5782$ and $0.5747$).
+>
+> **Note B (Top-2 Pothole Proximity & Functional Tie)**:
+> Under the baseline `safety-first` profile, the top two highway potholes (`SRMD-IND-000278-00` at $C_i = 0.5782$ and `SRMD-IND-000045-00` at $C_i = 0.5747$) are separated by a negligible margin of only **$0.0035$ TOPSIS score units** ($|0.5782 - 0.5747| = 0.0035 < 0.01$). Given physical sensor measurement tolerances ($\pm 0.5\text{ cm}$ depth noise), the top-2 potholes are **within $0.01$ TOPSIS of each other and should be treated as functionally tied** for field maintenance dispatch.
+
 ---
 
 ## 7. Sensitivity Analysis & Scale Variation (3 Profiles x 3 v-values x 4 Scales)
