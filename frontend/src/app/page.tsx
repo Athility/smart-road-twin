@@ -36,35 +36,16 @@ const SensitivityPanel = dynamic(
   }
 );
 
+import fallbackProfileMapRaw from '@/data/fallback_profile_map.json';
+
 const FALLBACK_PROFILE_MAP: Record<
   WeightProfile,
   Record<string, { topsis_rank: number; topsis_score: number; vikor_rank: number; priority_level: PriorityLevel; vikor_Q: number }>
-> = {
-  'safety-first': {
-    'SRMD-IND-000045-00': { topsis_rank: 1, topsis_score: 0.571, vikor_rank: 4, priority_level: 'Critical', vikor_Q: 0.437 },
-    'SRMD-IND-000102-00': { topsis_rank: 3, topsis_score: 0.4081, vikor_rank: 3, priority_level: 'Medium', vikor_Q: 0.3842 },
-    'SRMD-IND-000155-00': { topsis_rank: 5, topsis_score: 0.3825, vikor_rank: 6, priority_level: 'Low', vikor_Q: 0.9142 },
-    'SRMD-IND-000210-00': { topsis_rank: 4, topsis_score: 0.3912, vikor_rank: 5, priority_level: 'Medium', vikor_Q: 0.6426 },
-    'SRMD-IND-000278-00': { topsis_rank: 2, topsis_score: 0.5583, vikor_rank: 1, priority_level: 'High', vikor_Q: 0.0 },
-    'SRMD-IND-000278-01': { topsis_rank: 6, topsis_score: 0.3752, vikor_rank: 2, priority_level: 'Low', vikor_Q: 0.3625 },
-  },
-  'traffic-first': {
-    'SRMD-IND-000045-00': { topsis_rank: 1, topsis_score: 0.7625, vikor_rank: 1, priority_level: 'Critical', vikor_Q: 0.0 },
-    'SRMD-IND-000102-00': { topsis_rank: 4, topsis_score: 0.4109, vikor_rank: 4, priority_level: 'Medium', vikor_Q: 0.4813 },
-    'SRMD-IND-000155-00': { topsis_rank: 5, topsis_score: 0.2646, vikor_rank: 5, priority_level: 'Low', vikor_Q: 0.8078 },
-    'SRMD-IND-000210-00': { topsis_rank: 6, topsis_score: 0.2241, vikor_rank: 6, priority_level: 'Low', vikor_Q: 1.0 },
-    'SRMD-IND-000278-00': { topsis_rank: 2, topsis_score: 0.5916, vikor_rank: 2, priority_level: 'High', vikor_Q: 0.2267 },
-    'SRMD-IND-000278-01': { topsis_rank: 3, topsis_score: 0.4506, vikor_rank: 3, priority_level: 'Medium', vikor_Q: 0.4429 },
-  },
-  'equity-first': {
-    'SRMD-IND-000045-00': { topsis_rank: 6, topsis_score: 0.3527, vikor_rank: 6, priority_level: 'Low', vikor_Q: 0.9904 },
-    'SRMD-IND-000102-00': { topsis_rank: 3, topsis_score: 0.5798, vikor_rank: 3, priority_level: 'Medium', vikor_Q: 0.3633 },
-    'SRMD-IND-000155-00': { topsis_rank: 2, topsis_score: 0.6136, vikor_rank: 4, priority_level: 'Critical', vikor_Q: 0.4512 },
-    'SRMD-IND-000210-00': { topsis_rank: 4, topsis_score: 0.5564, vikor_rank: 2, priority_level: 'Medium', vikor_Q: 0.2838 },
-    'SRMD-IND-000278-00': { topsis_rank: 1, topsis_score: 0.7358, vikor_rank: 1, priority_level: 'Critical', vikor_Q: 0.0 },
-    'SRMD-IND-000278-01': { topsis_rank: 5, topsis_score: 0.5042, vikor_rank: 5, priority_level: 'Low', vikor_Q: 0.7396 },
-  },
-};
+> = fallbackProfileMapRaw as Record<
+  WeightProfile,
+  Record<string, { topsis_rank: number; topsis_score: number; vikor_rank: number; priority_level: PriorityLevel; vikor_Q: number }>
+>;
+
 
 export default function DashboardPage() {
   const [telemetry, setTelemetry] = useState<TelemetryResponse>(FALLBACK_DATA);

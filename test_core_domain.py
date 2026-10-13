@@ -2682,9 +2682,100 @@ class TestDomainPhysicsAndThresholdHonesty(unittest.TestCase):
             else:
                 self.assertIsNone(pt.get("calculated_volume_liters"))
 
+    def test_frontend_fallback_sync_with_srmd(self):
+        """
+        Freeze Task 1: Verify frontend FALLBACK data is 100% synchronized with
+        data/processed/srmd/srmd_records.json.
+        Asserts identical IDs, volume/severity magnitudes, TOPSIS scores, and priority tiers
+        between backend SRMD store items and frontend fallback records.
+        Also asserts concordance of fallback_profile_map across all 3 weight profiles.
+        """
+        import main as app_module
+        from services.backend.app.services.mcdm_engine import (
+            MCDMPrioritizationEngine,
+            build_mcdm_row_from_store_item,
+        )
+
+        app_module._load_srmd_records_into_store()
+        store_records = {item["id"]: item for item in app_module.telemetry_store}
+
+        fallback_file = PROJECT_ROOT / "frontend" / "src" / "data" / "fallback_records.json"
+        self.assertTrue(fallback_file.exists(), f"Missing fallback file {fallback_file}")
+        fallback_records = json.loads(fallback_file.read_text(encoding="utf-8"))
+        fallback_by_id = {item["id"]: item for item in fallback_records}
+
+        self.assertEqual(len(fallback_records), len(store_records))
+        self.assertEqual(set(fallback_by_id.keys()), set(store_records.keys()))
+
+        for rec_id, store_item in store_records.items():
+            fb_item = fallback_by_id[rec_id]
+
+            # 1. ID check
+            self.assertEqual(fb_item["id"], store_item["id"])
+
+            # 2. Volume / Severity check
+            fb_pt = fb_item["processed_telemetry"]
+            st_pt = store_item["processed_telemetry"]
+
+            if store_item.get("damage_class") == "D40":
+                self.assertIsNotNone(fb_pt["calculated_volume_liters"])
+                self.assertAlmostEqual(
+                    fb_pt["calculated_volume_liters"],
+                    st_pt["calculated_volume_liters"],
+                    places=2,
+                    msg=f"Volume mismatch on {rec_id}"
+                )
+            else:
+                self.assertIsNone(fb_pt.get("calculated_volume_liters"))
+                self.assertIsNone(st_pt.get("calculated_volume_liters"))
+
+            self.assertAlmostEqual(
+                fb_pt["defect_severity_magnitude"],
+                st_pt["defect_severity_magnitude"],
+                places=2,
+                msg=f"Severity magnitude mismatch on {rec_id}"
+            )
+
+            # 3. TOPSIS score check
+            self.assertAlmostEqual(
+                fb_item["topsis_score"],
+                store_item["topsis_score"],
+                places=4,
+                msg=f"TOPSIS score mismatch on {rec_id}"
+            )
+
+            # 4. Priority tier check
+            self.assertEqual(
+                fb_item["priority_level"],
+                store_item["priority_level"],
+                msg=f"Priority tier mismatch on {rec_id}"
+            )
+
+            # 5. Ranks check
+            self.assertEqual(fb_item["topsis_rank"], store_item["topsis_rank"])
+            self.assertEqual(fb_item["vikor_rank"], store_item["vikor_rank"])
+
+        # 6. Fallback profile map check across all three weight profiles
+        profile_map_file = PROJECT_ROOT / "frontend" / "src" / "data" / "fallback_profile_map.json"
+        self.assertTrue(profile_map_file.exists(), f"Missing profile map file {profile_map_file}")
+        profile_map = json.loads(profile_map_file.read_text(encoding="utf-8"))
+
+        matrix = np.array([build_mcdm_row_from_store_item(app_module.telemetry_store[i]) for i in range(len(app_module.telemetry_store))])
+        for profile in ("safety-first", "traffic-first", "equity-first"):
+            self.assertIn(profile, profile_map)
+            engine = MCDMPrioritizationEngine(profile=profile, use_calibrated_thresholds=True)
+            res = engine.compute_all(matrix, v=0.5, calibrated=True)
+            for i, st_item in enumerate(app_module.telemetry_store):
+                p_entry = profile_map[profile][st_item["id"]]
+                self.assertEqual(p_entry["topsis_rank"], int(res["topsis_ranks"][i]))
+                self.assertAlmostEqual(p_entry["topsis_score"], float(res["topsis_scores"][i]), places=4)
+                self.assertEqual(p_entry["vikor_rank"], int(res["vikor_ranks"][i]))
+                self.assertEqual(p_entry["priority_level"], str(res["priority_levels"][i]))
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

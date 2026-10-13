@@ -1,0 +1,134 @@
+{
+  "safety-first": {
+    "SRMD-IND-000045-00": {
+      "topsis_rank": 2,
+      "topsis_score": 0.5747,
+      "vikor_rank": 4,
+      "priority_level": "High",
+      "vikor_Q": 0.4889
+    },
+    "SRMD-IND-000102-00": {
+      "topsis_rank": 3,
+      "topsis_score": 0.4283,
+      "vikor_rank": 2,
+      "priority_level": "Medium",
+      "vikor_Q": 0.3693
+    },
+    "SRMD-IND-000155-00": {
+      "topsis_rank": 6,
+      "topsis_score": 0.3789,
+      "vikor_rank": 6,
+      "priority_level": "Low",
+      "vikor_Q": 0.9317
+    },
+    "SRMD-IND-000210-00": {
+      "topsis_rank": 4,
+      "topsis_score": 0.4112,
+      "vikor_rank": 5,
+      "priority_level": "Medium",
+      "vikor_Q": 0.6147
+    },
+    "SRMD-IND-000278-00": {
+      "topsis_rank": 1,
+      "topsis_score": 0.5782,
+      "vikor_rank": 1,
+      "priority_level": "Critical",
+      "vikor_Q": 0.0
+    },
+    "SRMD-IND-000278-01": {
+      "topsis_rank": 5,
+      "topsis_score": 0.3975,
+      "vikor_rank": 3,
+      "priority_level": "Low",
+      "vikor_Q": 0.4371
+    }
+  },
+  "traffic-first": {
+    "SRMD-IND-000045-00": {
+      "topsis_rank": 1,
+      "topsis_score": 0.7643,
+      "vikor_rank": 1,
+      "priority_level": "Critical",
+      "vikor_Q": 0.0
+    },
+    "SRMD-IND-000102-00": {
+      "topsis_rank": 4,
+      "topsis_score": 0.4293,
+      "vikor_rank": 4,
+      "priority_level": "Medium",
+      "vikor_Q": 0.4414
+    },
+    "SRMD-IND-000155-00": {
+      "topsis_rank": 5,
+      "topsis_score": 0.2622,
+      "vikor_rank": 5,
+      "priority_level": "Low",
+      "vikor_Q": 0.8155
+    },
+    "SRMD-IND-000210-00": {
+      "topsis_rank": 6,
+      "topsis_score": 0.2475,
+      "vikor_rank": 6,
+      "priority_level": "Low",
+      "vikor_Q": 1.0
+    },
+    "SRMD-IND-000278-00": {
+      "topsis_rank": 2,
+      "topsis_score": 0.6099,
+      "vikor_rank": 2,
+      "priority_level": "Critical",
+      "vikor_Q": 0.1826
+    },
+    "SRMD-IND-000278-01": {
+      "topsis_rank": 3,
+      "topsis_score": 0.4708,
+      "vikor_rank": 3,
+      "priority_level": "Medium",
+      "vikor_Q": 0.4027
+    }
+  },
+  "equity-first": {
+    "SRMD-IND-000045-00": {
+      "topsis_rank": 6,
+      "topsis_score": 0.3558,
+      "vikor_rank": 6,
+      "priority_level": "Low",
+      "vikor_Q": 0.9915
+    },
+    "SRMD-IND-000102-00": {
+      "topsis_rank": 3,
+      "topsis_score": 0.5875,
+      "vikor_rank": 2,
+      "priority_level": "Medium",
+      "vikor_Q": 0.4122
+    },
+    "SRMD-IND-000155-00": {
+      "topsis_rank": 2,
+      "topsis_score": 0.6105,
+      "vikor_rank": 3,
+      "priority_level": "Critical",
+      "vikor_Q": 0.499
+    },
+    "SRMD-IND-000210-00": {
+      "topsis_rank": 4,
+      "topsis_score": 0.5643,
+      "vikor_rank": 4,
+      "priority_level": "Medium",
+      "vikor_Q": 0.5328
+    },
+    "SRMD-IND-000278-00": {
+      "topsis_rank": 1,
+      "topsis_score": 0.7471,
+      "vikor_rank": 1,
+      "priority_level": "Critical",
+      "vikor_Q": 0.0
+    },
+    "SRMD-IND-000278-01": {
+      "topsis_rank": 5,
+      "topsis_score": 0.5101,
+      "vikor_rank": 5,
+      "priority_level": "Low",
+      "vikor_Q": 0.7663
+    }
+  }
+}
